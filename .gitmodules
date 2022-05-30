@@ -1,6 +1,6 @@
 [submodule "gym-minigrid"]
 	path = gym-minigrid
-	url = https://github.com/maximecb/gym-minigrid.git
+	url = https://github.com/AdamJelley/gym-minigrid.git
 [submodule "rl-starter-files"]
-	path = rl-starter-files
-	url = https://github.com/lcswillems/rl-starter-files.git
+	path = minigrid-rl-starter
+	url = https://github.com/AdamJelley/minigrid-rl-starter.git
