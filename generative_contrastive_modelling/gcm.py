@@ -19,10 +19,6 @@ class GenerativeContrastiveModelling(nn.Module):
             # log.info(f"Ones tensor is {ones.shape}")
             num_samples = ones.new_zeros((batch_size, num_classes))
             # log.info(f"Num samples tensor is {num_samples.shape}")
-            print(num_samples.shape)
-            print(targets.shape)
-            print(ones.shape)
-
             num_samples.scatter_add_(1, targets, ones)
         return num_samples
 
@@ -216,9 +212,11 @@ class GenerativeContrastiveModelling(nn.Module):
         _, predictions = log_env_obs_normalisation.max(1)
 
         loss = F.cross_entropy(log_env_obs_normalisation, query_targets)
+        accuracy = torch.eq(predictions, query_targets).float().mean()
 
         output = {}
         output["predictions"] = predictions
         output["loss"] = loss
+        output["accuracy"] = accuracy
 
         return output

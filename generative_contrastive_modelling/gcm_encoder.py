@@ -9,7 +9,7 @@ class GCMEncoder(nn.Module):
         super().__init__()
         self.input_shape = input_shape
         self.z_dim = z_dim
-        self.input_layer = nn.Linear(math.prod(self.input_shape[1:]), self.z_dim)
+        self.input_layer = nn.Linear(math.prod(self.input_shape), self.z_dim)
         self.input_norm = nn.BatchNorm1d(self.z_dim)
         self.hidden_layer = nn.Linear(self.z_dim, self.z_dim)
         self.hidden_norm = nn.BatchNorm1d(self.z_dim)
