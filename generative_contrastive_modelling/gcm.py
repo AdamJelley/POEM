@@ -7,9 +7,9 @@ from generative_contrastive_modelling.gcm_encoder import GCMEncoder
 
 
 class GenerativeContrastiveModelling(nn.Module):
-    def __init__(self, input_shape, z_dim):
+    def __init__(self, input_shape, hid_dim, z_dim):
         super().__init__()
-        self.gcm_encoder = GCMEncoder(input_shape, z_dim)
+        self.gcm_encoder = GCMEncoder(input_shape, hid_dim, z_dim)
 
     def get_num_samples(self, targets, num_classes, dtype=None):
         batch_size = targets.size(0)
