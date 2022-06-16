@@ -36,7 +36,7 @@ def parse_generation_args():
     parser.add_argument(
         "--pause",
         type=float,
-        default=0.1,
+        default=0,
         help="pause duration between two consequent actions of the agent (default: 0.1)",
     )
     parser.add_argument(
@@ -71,7 +71,8 @@ def parse_generation_args():
     )
 
     args = parser.parse_args()
-    args.dataset_name = f"{args.env}-{args.model}-{args.episodes}"
+    if args.dataset_name is None:
+        args.dataset_name = f"{args.env}-{args.model}-{args.episodes}"
     return args
 
 
