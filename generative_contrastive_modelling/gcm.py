@@ -175,13 +175,14 @@ class GenerativeContrastiveModelling(nn.Module):
         ).sum(dim=-1)
         return product_mean, product_precision, log_product_normalisation
 
-    def compute_loss(
-        self, support_trajectories, support_targets, query_observations, query_targets
-    ):
-        num_support_obs = support_trajectories.shape[0]
-        num_query_obs = query_observations.shape[0]
+    def compute_loss(self, support_trajectories, query_views):
+        num_support_obs = support_trajectories["targets"].shape[0]
+        num_query_obs = query_views["targets"].shape[0]
 
-        observations = torch.cat([support_trajectories, query_observations], dim=0)
+        observations = torch.cat(
+            [support_trajectories["observations"], query_views["observations"]], dim=0
+        )
+        # locations = torch.cat([support_locations, query_locations], dim=0)
         observation_means, observation_precisions = self.gcm_encoder.forward(
             observations
         )
@@ -190,8 +191,9 @@ class GenerativeContrastiveModelling(nn.Module):
         query_means = observation_means[num_support_obs:].unsqueeze(0)
         support_precisions = observation_precisions[:num_support_obs].unsqueeze(0)
         query_precisions = observation_precisions[num_support_obs:].unsqueeze(0)
-        support_targets = support_targets.unsqueeze(0)
-        query_targets = query_targets.unsqueeze(0)
+
+        support_targets = support_trajectories["targets"].unsqueeze(0)
+        query_targets = query_views["targets"].unsqueeze(0)
 
         (
             env_proto_means,

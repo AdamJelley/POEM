@@ -9,8 +9,20 @@ sys.path.append("/Users/ajelley/Projects/gen-con-rl/minigrid-rl-starter/")
 import utils
 from utils import device
 from generate_trajectories import generate_data
+from process_trajectories import data_to_tensors
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
+
+
+def sample_views(trajectories, num_queries):
+
+    indices = T.randperm(trajectories["targets"].shape[0])[:num_queries]
+    observations = trajectories["observations"][indices]
+    targets = trajectories["targets"][indices]
+    locations = trajectories["locations"][indices]
+
+    views = {"observations": observations, "targets": targets, "locations": locations}
+    return views
 
 
 def parse_train_args():
@@ -64,7 +76,7 @@ def parse_train_args():
         "--num_environments",
         type=int,
         default=10,
-        help="number of episodes to visualize",
+        help="number of environments to explore and classify",
     )
     parser.add_argument(
         "--memory", action="store_true", default=False, help="add a LSTM to the model"
@@ -73,7 +85,16 @@ def parse_train_args():
         "--text", action="store_true", default=False, help="add a GRU to the model"
     )
     parser.add_argument(
-        "--render", action="store_true", default=False, help="render data generation"
+        "--render_trained",
+        action="store_true",
+        default=False,
+        help="render trained agent data generation",
+    )
+    parser.add_argument(
+        "--render_exploratory",
+        action="store_true",
+        default=False,
+        help="render exploratory agent data generation",
     )
     parser.add_argument(
         "--num_tasks", type=int, default=1000, help="Number of training episodes"
@@ -169,27 +190,10 @@ if __name__ == "__main__":
             env,
             trained_agent,
             config.num_environments,
-            render=config.render,
+            render=config.render_trained,
         )
 
-        support_trajectories = T.Tensor(
-            np.array(
-                [
-                    train_dataset[episode][step]["obs"]["partial_pixels"]
-                    for episode in range(len(train_dataset))
-                    for step in range(len(train_dataset[episode]))
-                ]
-            )
-        )
-        support_targets = T.tensor(
-            np.array(
-                [
-                    episode
-                    for episode in range(len(train_dataset))
-                    for step in range(len(train_dataset[episode]))
-                ]
-            )
-        )
+        support_trajectories = data_to_tensors(train_dataset)
 
         # Randomly sample query observations for now
         # indices = T.randperm(support_trajectories.shape[0])[: config.num_queries]
@@ -201,40 +205,19 @@ if __name__ == "__main__":
             env_copy,
             exploratory_agent,
             config.num_environments,
-            render=config.render,
+            render=config.render_exploratory,
         )
 
-        query_trajectories = T.Tensor(
-            np.array(
-                [
-                    query_dataset[episode][step]["obs"]["partial_pixels"]
-                    for episode in range(len(query_dataset))
-                    for step in range(len(query_dataset[episode]))
-                ]
-            )
-        )
-        query_targets = T.tensor(
-            np.array(
-                [
-                    episode
-                    for episode in range(len(query_dataset))
-                    for step in range(len(query_dataset[episode]))
-                ]
-            )
-        )
-        indices = T.randperm(query_trajectories.shape[0])[: config.num_queries]
-        query_observations = query_trajectories[indices]
-        query_targets = query_targets[indices]
+        query_trajectories = data_to_tensors(query_dataset)
+
+        query_views = sample_views(query_trajectories, config.num_queries)
 
         # Reset optimizer
         optimizer.zero_grad()
 
         # Pass trajectories and queries to learner to train representations
         outputs = learner.compute_loss(
-            support_trajectories=support_trajectories,
-            support_targets=support_targets,
-            query_observations=query_observations,
-            query_targets=query_targets,
+            support_trajectories=support_trajectories, query_views=query_views
         )
 
         outputs["loss"].backward()
