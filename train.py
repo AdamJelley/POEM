@@ -21,7 +21,14 @@ def parse_train_args():
         "--env", required=True, help="name of the environment to be run (REQUIRED)"
     )
     parser.add_argument(
-        "--model", required=True, help="name of the trained model (REQUIRED)"
+        "--trained_agent",
+        required=True,
+        help="name of the trained model to generate support trajectories (REQUIRED)",
+    )
+    parser.add_argument(
+        "--exploratory_agent",
+        required=True,
+        help="name of the exploratory model to generate query observations (REQUIRED)",
     )
     parser.add_argument(
         "--learner",
@@ -31,7 +38,7 @@ def parse_train_args():
     parser.add_argument(
         "--num_queries",
         type=int,
-        default=5,
+        default=100,
         help="Number of query observations to try to match",
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed (default: 0)")
@@ -102,26 +109,45 @@ if __name__ == "__main__":
 
     print(f"Device: {device}\n")
 
-    # Load environment
+    # Load environments
 
     env = utils.make_env(config.env, config.seed)
     for _ in range(config.shift):
         env.reset()
+
+    env_copy = utils.make_env(config.env, config.seed)
+    for _ in range(config.shift):
+        env_copy.reset()
     print("Environment loaded\n")
 
-    # Load agent
+    # Load agents
 
-    model_dir = utils.get_model_dir(config.model, storage_dir="minigrid-rl-starter")
+    trained_model_dir = utils.get_model_dir(
+        config.trained_agent, storage_dir="minigrid-rl-starter"
+    )
+    exploratory_model_dir = utils.get_model_dir(
+        config.exploratory_agent, storage_dir="minigrid-rl-starter"
+    )
 
-    agent = utils.Agent(
+    trained_agent = utils.Agent(
         env.observation_space,
         env.action_space,
-        model_dir,
+        trained_model_dir,
         argmax=config.argmax,
         use_memory=config.memory,
         use_text=config.text,
     )
-    print("Agent loaded\n")
+    print("Trained agent loaded\n")
+
+    exploratory_agent = utils.Agent(
+        env.observation_space,
+        env.action_space,
+        exploratory_model_dir,
+        argmax=config.argmax,
+        use_memory=config.memory,
+        use_text=config.text,
+    )
+    print("Exploratory agent loaded\n")
 
     # Load learner and optimizer
     if config.learner == "GCM":
@@ -138,10 +164,10 @@ if __name__ == "__main__":
     # Start training
     for task in range(config.num_tasks):
 
-        # Run the agent to generate data
-        dataset = generate_data(
+        # Run the trained agent to generate training data
+        train_dataset = generate_data(
             env,
-            agent,
+            trained_agent,
             config.num_environments,
             render=config.render,
         )
@@ -149,9 +175,9 @@ if __name__ == "__main__":
         support_trajectories = T.Tensor(
             np.array(
                 [
-                    dataset[episode][step]["obs"]["partial_pixels"]
-                    for episode in range(len(dataset))
-                    for step in range(len(dataset[episode]))
+                    train_dataset[episode][step]["obs"]["partial_pixels"]
+                    for episode in range(len(train_dataset))
+                    for step in range(len(train_dataset[episode]))
                 ]
             )
         )
@@ -159,16 +185,46 @@ if __name__ == "__main__":
             np.array(
                 [
                     episode
-                    for episode in range(len(dataset))
-                    for step in range(len(dataset[episode]))
+                    for episode in range(len(train_dataset))
+                    for step in range(len(train_dataset[episode]))
                 ]
             )
         )
 
         # Randomly sample query observations for now
-        indices = T.randperm(support_trajectories.shape[0])[: config.num_queries]
-        query_observations = support_trajectories[indices]
-        query_targets = support_targets[indices]
+        # indices = T.randperm(support_trajectories.shape[0])[: config.num_queries]
+        # query_observations = support_trajectories[indices]
+        # query_targets = support_targets[indices]
+
+        # Run the exploratory agent to generate query data
+        query_dataset = generate_data(
+            env_copy,
+            exploratory_agent,
+            config.num_environments,
+            render=config.render,
+        )
+
+        query_trajectories = T.Tensor(
+            np.array(
+                [
+                    query_dataset[episode][step]["obs"]["partial_pixels"]
+                    for episode in range(len(query_dataset))
+                    for step in range(len(query_dataset[episode]))
+                ]
+            )
+        )
+        query_targets = T.tensor(
+            np.array(
+                [
+                    episode
+                    for episode in range(len(query_dataset))
+                    for step in range(len(query_dataset[episode]))
+                ]
+            )
+        )
+        indices = T.randperm(query_trajectories.shape[0])[: config.num_queries]
+        query_observations = query_trajectories[indices]
+        query_targets = query_targets[indices]
 
         # Reset optimizer
         optimizer.zero_grad()
