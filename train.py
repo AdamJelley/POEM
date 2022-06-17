@@ -9,20 +9,9 @@ sys.path.append("/Users/ajelley/Projects/gen-con-rl/minigrid-rl-starter/")
 import utils
 from utils import device
 from generate_trajectories import generate_data
-from process_trajectories import data_to_tensors
+from process_trajectories import data_to_tensors, sample_views
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
-
-
-def sample_views(trajectories, num_queries):
-
-    indices = T.randperm(trajectories["targets"].shape[0])[:num_queries]
-    observations = trajectories["observations"][indices]
-    targets = trajectories["targets"][indices]
-    locations = trajectories["locations"][indices]
-
-    views = {"observations": observations, "targets": targets, "locations": locations}
-    return views
 
 
 def parse_train_args():
@@ -48,10 +37,28 @@ def parse_train_args():
         help="Representation learning method: GCM or proto currently supported (REQUIRED)",
     )
     parser.add_argument(
+        "--num_environments",
+        type=int,
+        default=10,
+        help="number of environments to explore and classify",
+    )
+    parser.add_argument(
         "--num_queries",
         type=int,
         default=100,
         help="Number of query observations to try to match",
+    )
+    parser.add_argument(
+        "--use_location",
+        action="store_true",
+        default=False,
+        help="Allow leanrer to use agent location info",
+    )
+    parser.add_argument(
+        "--use_direction",
+        action="store_true",
+        default=False,
+        help="Allow leanrer to use agent direction info",
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed (default: 0)")
     parser.add_argument(
@@ -71,12 +78,6 @@ def parse_train_args():
         type=float,
         default=0,
         help="pause duration between two consequent actions of the agent (default: 0.1)",
-    )
-    parser.add_argument(
-        "--num_environments",
-        type=int,
-        default=10,
-        help="number of environments to explore and classify",
     )
     parser.add_argument(
         "--memory", action="store_true", default=False, help="add a LSTM to the model"
@@ -99,7 +100,7 @@ def parse_train_args():
     parser.add_argument(
         "--num_tasks", type=int, default=1000, help="Number of training episodes"
     )
-    parser.add_argument("--embedding_dim", type=int, default=64, help="Embedding size")
+    parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding size")
     parser.add_argument(
         "--use_grid",
         action="store_true",
@@ -173,7 +174,11 @@ if __name__ == "__main__":
     # Load learner and optimizer
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
-            config.input_shape, config.embedding_dim, config.embedding_dim
+            config.input_shape,
+            config.embedding_dim,
+            config.embedding_dim,
+            config.use_location,
+            config.use_direction,
         )
         optimizer = optim.Adam(learner.gcm_encoder.parameters(), lr=0.001)
     elif config.learner == "proto":

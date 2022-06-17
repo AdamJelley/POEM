@@ -7,9 +7,15 @@ from generative_contrastive_modelling.gcm_encoder import GCMEncoder
 
 
 class GenerativeContrastiveModelling(nn.Module):
-    def __init__(self, input_shape, hid_dim, z_dim):
+    def __init__(
+        self, input_shape, hid_dim, z_dim, use_location=False, use_direction=False
+    ):
         super().__init__()
-        self.gcm_encoder = GCMEncoder(input_shape, hid_dim, z_dim)
+        self.use_location = use_location
+        self.use_direction = use_direction
+        self.gcm_encoder = GCMEncoder(
+            input_shape, hid_dim, z_dim, use_location, use_direction
+        )
 
     def get_num_samples(self, targets, num_classes, dtype=None):
         batch_size = targets.size(0)
@@ -176,15 +182,27 @@ class GenerativeContrastiveModelling(nn.Module):
         return product_mean, product_precision, log_product_normalisation
 
     def compute_loss(self, support_trajectories, query_views):
+
         num_support_obs = support_trajectories["targets"].shape[0]
         num_query_obs = query_views["targets"].shape[0]
 
         observations = torch.cat(
             [support_trajectories["observations"], query_views["observations"]], dim=0
-        )
-        # locations = torch.cat([support_locations, query_locations], dim=0)
+        ).detach()
+        if self.use_location:
+            locations = torch.cat(
+                [support_trajectories["locations"], query_views["locations"]], dim=0
+            ).detach()
+        else:
+            locations = None
+        if self.use_direction:
+            directions = torch.cat(
+                [support_trajectories["directions"], query_views["directions"]], dim=0
+            )
+        else:
+            directions = None
         observation_means, observation_precisions = self.gcm_encoder.forward(
-            observations
+            observations, locations, directions
         )
 
         support_means = observation_means[:num_support_obs].unsqueeze(0)

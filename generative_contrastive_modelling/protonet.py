@@ -7,9 +7,15 @@ from generative_contrastive_modelling.proto_encoder import ProtoEncoder
 
 
 class PrototypicalNetwork(nn.Module):
-    def __init__(self, input_shape, hid_dim, z_dim):
+    def __init__(
+        self, input_shape, hid_dim, z_dim, use_location=False, use_direction=False
+    ):
         super().__init__()
-        self.proto_encoder = ProtoEncoder(input_shape, hid_dim, z_dim)
+        self.use_location = use_location
+        self.use_direction = use_direction
+        self.proto_encoder = ProtoEncoder(
+            input_shape, hid_dim, z_dim, use_location, use_direction
+        )
 
     def get_num_samples(self, targets, num_classes, dtype=None):
         batch_size = targets.size(0)
@@ -61,19 +67,35 @@ class PrototypicalNetwork(nn.Module):
         )
         return distances
 
-    def compute_loss(
-        self, support_trajectories, support_targets, query_observations, query_targets
-    ):
-        num_support_obs = support_trajectories.shape[0]
-        num_query_obs = query_observations.shape[0]
+    def compute_loss(self, support_trajectories, query_views):
 
-        observations = torch.cat([support_trajectories, query_observations], dim=0)
-        observation_embeddings, _ = self.proto_encoder.forward(observations)
+        num_support_obs = support_trajectories["targets"].shape[0]
+        num_query_obs = query_views["targets"].shape[0]
+
+        observations = torch.cat(
+            [support_trajectories["observations"], query_views["observations"]], dim=0
+        ).detach()
+        if self.use_location:
+            locations = torch.cat(
+                [support_trajectories["locations"], query_views["locations"]], dim=0
+            ).detach()
+        else:
+            locations = None
+        if self.use_direction:
+            directions = torch.cat(
+                [support_trajectories["directions"], query_views["directions"]], dim=0
+            )
+        else:
+            directions = None
+        observation_embeddings, _ = self.proto_encoder.forward(
+            observations, locations, directions
+        )
 
         support_embeddings = observation_embeddings[:num_support_obs].unsqueeze(0)
         query_embeddings = observation_embeddings[num_support_obs:].unsqueeze(0)
-        support_targets = support_targets.unsqueeze(0)
-        query_targets = query_targets.unsqueeze(0)
+
+        support_targets = support_trajectories["targets"].unsqueeze(0)
+        query_targets = query_views["targets"].unsqueeze(0)
 
         env_proto_embeddings = self.get_prototypes(support_embeddings, support_targets)
 

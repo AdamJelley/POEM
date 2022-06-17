@@ -25,6 +25,7 @@ class Encoder(nn.Module):
             self.conv_block(x_dim[0], hid_dim),
             self.conv_block(hid_dim, hid_dim),
             self.conv_block(hid_dim, hid_dim),
+            self.conv_block(hid_dim, hid_dim),
             self.conv_block(hid_dim, z_dim),
         )
 
