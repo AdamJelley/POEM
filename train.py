@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import torch as T
 import torch.optim as optim
+import torchvision
 import argparse
 import wandb
 
@@ -35,6 +36,9 @@ def parse_train_args():
         "--learner",
         required=True,
         help="Representation learning method: GCM or proto currently supported (REQUIRED)",
+    )
+    parser.add_argument(
+        "--num_tasks", type=int, default=1000, help="Number of training episodes"
     )
     parser.add_argument(
         "--num_environments",
@@ -97,15 +101,18 @@ def parse_train_args():
         default=False,
         help="render exploratory agent data generation",
     )
-    parser.add_argument(
-        "--num_tasks", type=int, default=1000, help="Number of training episodes"
-    )
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding size")
     parser.add_argument(
         "--use_grid",
         action="store_true",
         default=False,
         help="Use grid input rather than pixels",
+    )
+    parser.add_argument(
+        "--log_samples",
+        action="store_true",
+        default=False,
+        help="Log sample images to wandb",
     )
 
     args = parser.parse_args()
@@ -119,8 +126,8 @@ def parse_train_args():
 
 
 if __name__ == "__main__":
-    wandb.init(project="gen-con-rl")
     args = parse_train_args()
+    wandb.init(project="gen-con-rl")
     wandb.config.update(args)
     config = wandb.config
 
@@ -183,7 +190,11 @@ if __name__ == "__main__":
         optimizer = optim.Adam(learner.gcm_encoder.parameters(), lr=0.001)
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
-            config.input_shape, config.embedding_dim, config.embedding_dim
+            config.input_shape,
+            config.embedding_dim,
+            config.embedding_dim,
+            config.use_location,
+            config.use_direction,
         )
         optimizer = optim.Adam(learner.proto_encoder.parameters(), lr=0.001)
 
@@ -199,11 +210,6 @@ if __name__ == "__main__":
         )
 
         support_trajectories = data_to_tensors(train_dataset)
-
-        # Randomly sample query observations for now
-        # indices = T.randperm(support_trajectories.shape[0])[: config.num_queries]
-        # query_observations = support_trajectories[indices]
-        # query_targets = support_targets[indices]
 
         # Run the exploratory agent to generate query data
         query_dataset = generate_data(
@@ -233,9 +239,60 @@ if __name__ == "__main__":
         )
         wandb.log(
             {
-                "Loss": outputs["loss"],
-                "Accuracy": outputs["accuracy"],
+                "Training/Loss": outputs["loss"],
+                "Training/Accuracy": outputs["accuracy"],
             }
         )
+        if config.log_samples and task == 0:
+            support_environments = wandb.Image(
+                torchvision.utils.make_grid(
+                    [
+                        T.Tensor(train_dataset[episode][0]["obs"]["pixels"])
+                        for episode in range(len(train_dataset))
+                    ],
+                    nrow=5,
+                ),
+                caption=f"Environments from first task",
+            )
+            support_trajectory_env_view = wandb.Video(
+                np.stack(
+                    [
+                        train_dataset[0][step]["obs"]["pixels"]
+                        for step in range(len(train_dataset[0]))
+                    ]
+                ).astype("u1"),
+                caption=f"Environment view (only for demonstration)",
+                fps=5,
+            )
+            support_trajectory_agent_view = wandb.Video(
+                np.stack(
+                    [
+                        np.repeat(
+                            np.repeat(
+                                train_dataset[0][step]["obs"]["partial_pixels"],
+                                4,
+                                axis=1,
+                            ),
+                            4,
+                            axis=2,
+                        )
+                        for step in range(len(train_dataset[0]))
+                    ]
+                ).astype("u1"),
+                caption=f"Agent view (used for training)",
+                fps=5,
+            )
+            query_images = wandb.Image(
+                query_views["observations"][:5],
+                caption=f"Samples of query images in first task from environments: {query_views['targets'][:5]}",
+            )
+            wandb.log(
+                {
+                    "Images/Environments": support_environments,
+                    "Images/Query image samples": query_images,
+                    "Trajectories/Trained agent navigating environment - env view": support_trajectory_env_view,
+                    "Trajectories/Trained agent navigating environment - agent view": support_trajectory_agent_view,
+                }
+            )
 
     wandb.finish()
