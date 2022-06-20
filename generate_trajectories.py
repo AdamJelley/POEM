@@ -6,9 +6,8 @@ import pickle
 import sys
 import matplotlib.pyplot as plt
 
-sys.path.append("/Users/ajelley/Projects/gen-con-rl/minigrid-rl-starter/")
-import utils
-from utils import device
+import minigrid_rl_starter.utils as utils
+from minigrid_rl_starter.utils import device
 
 
 # Parse arguments
@@ -177,7 +176,7 @@ if __name__ == "__main__":
 
     # Load agent
 
-    model_dir = utils.get_model_dir(args.model, storage_dir="minigrid-rl-starter")
+    model_dir = utils.get_model_dir(args.model, storage_dir="minigrid_rl_starter")
 
     agent = utils.Agent(
         env.observation_space,

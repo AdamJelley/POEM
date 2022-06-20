@@ -6,9 +6,8 @@ import torchvision
 import argparse
 import wandb
 
-sys.path.append("/Users/ajelley/Projects/gen-con-rl/minigrid-rl-starter/")
-import utils
-from utils import device
+from minigrid_rl_starter import utils
+from minigrid_rl_starter.utils import device
 from generate_trajectories import generate_data
 from process_trajectories import data_to_tensors, sample_views
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
@@ -152,10 +151,10 @@ if __name__ == "__main__":
     # Load agents
 
     trained_model_dir = utils.get_model_dir(
-        config.trained_agent, storage_dir="minigrid-rl-starter"
+        config.trained_agent, storage_dir="minigrid_rl_starter"
     )
     exploratory_model_dir = utils.get_model_dir(
-        config.exploratory_agent, storage_dir="minigrid-rl-starter"
+        config.exploratory_agent, storage_dir="minigrid_rl_starter"
     )
 
     trained_agent = utils.Agent(
