@@ -1,6 +1,8 @@
 import numpy as np
 import torch as T
 import torch.nn.functional as F
+import torchvision
+import wandb
 
 
 def data_to_tensors(dataset):
@@ -70,3 +72,54 @@ def sample_views(trajectories, num_queries):
         "directions": directions,
     }
     return views
+
+
+def generate_visualisations(train_dataset, query_views):
+    support_environments = wandb.Image(
+        torchvision.utils.make_grid(
+            [
+                T.Tensor(train_dataset[episode][0]["obs"]["pixels"])
+                for episode in range(len(train_dataset))
+            ],
+            nrow=5,
+        ),
+        caption=f"Environments from first task",
+    )
+    support_trajectory_env_view = wandb.Video(
+        np.stack(
+            [
+                train_dataset[0][step]["obs"]["pixels"]
+                for step in range(len(train_dataset[0]))
+            ]
+        ).astype("u1"),
+        caption=f"Environment view (only for demonstration)",
+        fps=5,
+    )
+    support_trajectory_agent_view = wandb.Video(
+        np.stack(
+            [
+                np.repeat(
+                    np.repeat(
+                        train_dataset[0][step]["obs"]["partial_pixels"],
+                        4,
+                        axis=1,
+                    ),
+                    4,
+                    axis=2,
+                )
+                for step in range(len(train_dataset[0]))
+            ]
+        ).astype("u1"),
+        caption=f"Agent view (used for training)",
+        fps=5,
+    )
+    query_images = wandb.Image(
+        query_views["observations"][:5],
+        caption=f"Samples of query images in first task from environments: {query_views['targets'][:5]}",
+    )
+    return (
+        support_environments,
+        query_images,
+        support_trajectory_env_view,
+        support_trajectory_agent_view,
+    )
