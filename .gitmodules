@@ -2,5 +2,5 @@
 	path = gym-minigrid
 	url = https://github.com/AdamJelley/gym-minigrid.git
 [submodule "rl-starter-files"]
-	path = minigrid-rl-starter
+	path = minigrid_rl_starter
 	url = https://github.com/AdamJelley/minigrid-rl-starter.git
