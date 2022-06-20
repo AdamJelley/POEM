@@ -41,7 +41,8 @@ def data_to_tensors(dataset):
                     for step in range(len(dataset[episode]))
                 ]
             )
-        ).to(T.int64)
+        ).to(T.int64),
+        4,
     )
 
     trajectories = {
