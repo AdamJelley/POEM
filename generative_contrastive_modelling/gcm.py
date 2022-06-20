@@ -66,7 +66,6 @@ class GenerativeContrastiveModelling(nn.Module):
         indices = targets.unsqueeze(-1).expand_as(means)
 
         # NOTE: If this approach doesn't work well, try first normalising precisions by number of samples with:
-        # precisions.div_(num_samples)
         product_precision = precisions.new_zeros(
             (batch_size, num_classes, embedding_size)
         )

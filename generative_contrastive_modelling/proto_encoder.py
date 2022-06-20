@@ -24,6 +24,9 @@ class ProtoEncoder(Encoder):
             nn.BatchNorm1d(z_dim),
             nn.ELU(),
             nn.Linear(z_dim, z_dim),
+            nn.BatchNorm1d(z_dim),
+            nn.ELU(),
+            nn.Linear(z_dim, z_dim),
         )
 
     def forward(self, observations, locations, directions):

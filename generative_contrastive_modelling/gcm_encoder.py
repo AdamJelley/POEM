@@ -20,9 +20,15 @@ class GCMEncoder(Encoder):
             nn.BatchNorm1d(z_dim),
             nn.ELU(),
             nn.Linear(z_dim, z_dim),
+            nn.BatchNorm1d(z_dim),
+            nn.ELU(),
+            nn.Linear(z_dim, z_dim),
         )
         self.precision_head = nn.Sequential(
             nn.Linear(self.encoder_embedding_size, z_dim),
+            nn.BatchNorm1d(z_dim),
+            nn.ELU(),
+            nn.Linear(z_dim, z_dim),
             nn.BatchNorm1d(z_dim),
             nn.ELU(),
             nn.Linear(z_dim, z_dim),
@@ -37,3 +43,5 @@ class GCMEncoder(Encoder):
         mean_out = self.mean_head(out)
         precision_out = T.exp(self.precision_head(out))
         return mean_out, precision_out
+
+    # TODO: Add model saving
