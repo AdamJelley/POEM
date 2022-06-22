@@ -112,22 +112,13 @@ def generate_data(
             action = agent.get_action(obs)
             new_obs, reward, done, _ = env.step(action)
 
-            new_obs["pixels"] = numpy.moveaxis(env.render("rgb_array"), 2, 0)
-            new_obs["partial_pixels"] = numpy.moveaxis(
-                env.get_obs_render(new_obs["partial_image"], tile_size=8), 2, 0
-            )
-            new_location = env.agent_pos
-
             transition = {
                 "obs": obs,
                 "action": action,
                 "reward": reward,
-                "new_obs": new_obs,
                 "done": done,
                 "location": location,
-                "new_location": new_location,
                 "direction": obs["direction"],
-                "new_direction": new_obs["direction"],
             }
 
             trajectory[step] = transition
