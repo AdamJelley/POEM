@@ -8,13 +8,22 @@ from generative_contrastive_modelling.gcm_encoder import GCMEncoder
 
 class GenerativeContrastiveModelling(nn.Module):
     def __init__(
-        self, input_shape, hid_dim, z_dim, use_location=False, use_direction=False
+        self,
+        input_shape,
+        hid_dim,
+        z_dim,
+        use_location,
+        use_direction,
     ):
         super().__init__()
         self.use_location = use_location
         self.use_direction = use_direction
-        self.gcm_encoder = GCMEncoder(
-            input_shape, hid_dim, z_dim, use_location, use_direction
+        self.encoder = GCMEncoder(
+            input_shape,
+            hid_dim,
+            z_dim,
+            use_location,
+            use_direction,
         )
 
     def get_num_samples(self, targets, num_classes, dtype=None):
@@ -200,7 +209,7 @@ class GenerativeContrastiveModelling(nn.Module):
             )
         else:
             directions = None
-        observation_means, observation_precisions = self.gcm_encoder.forward(
+        observation_means, observation_precisions = self.encoder.forward(
             observations, locations, directions
         )
 

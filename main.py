@@ -191,7 +191,7 @@ if __name__ == "__main__":
             config.use_location,
             config.use_direction,
         )
-        optimizer = optim.Adam(learner.gcm_encoder.parameters(), lr=0.001)
+
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
             config.input_shape,
@@ -200,10 +200,12 @@ if __name__ == "__main__":
             config.use_location,
             config.use_direction,
         )
-        optimizer = optim.Adam(learner.proto_encoder.parameters(), lr=0.001)
+
+    optimizer = optim.Adam(learner.encoder.parameters(), lr=0.001)
+    # wandb.watch(learner, log="all", log_freq=1, log_graph=True)
 
     # Start training
-    print("Starting training...\n")
+    print("Starting training...")
     train(
         "train",
         config.num_train_tasks,
@@ -219,7 +221,11 @@ if __name__ == "__main__":
         config.render_exploratory,
         config.log_samples,
     )
-    print("Training complete!\n")
+    print("Training complete!")
+
+    # Save trained model
+    learner.encoder.save_checkpoint(checkpoint_dir=wandb.run.dir)
+    # learner.encoder.load_checkpoint(checkpoint_dir=wandb.run.dir)
 
     # Reset environments
     env.seed(args.test_seed)
@@ -228,7 +234,7 @@ if __name__ == "__main__":
     env_copy.reset()
 
     # Test model
-    print("Starting testing...\n")
+    print("Starting testing...")
     train(
         "test",
         config.num_test_tasks,

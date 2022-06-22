@@ -1,3 +1,4 @@
+import os
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
@@ -38,3 +39,13 @@ class ProtoEncoder(Encoder):
         mean_out = self.fc_head(out)
         precision_out = T.ones_like(mean_out)
         return mean_out, precision_out
+
+    def save_checkpoint(self, checkpoint_dir, model_name="proto_encoder_chkpt.pt"):
+        print("Saving state encoder network checkpoint...")
+        checkpoint_file = os.path.join(checkpoint_dir, model_name)
+        T.save(self.state_dict(), checkpoint_file)
+
+    def load_checkpoint(self, checkpoint_dir, model_name="proto_encoder_chkpt.pt"):
+        print("Loading state encoder network checkpoint...")
+        checkpoint_file = os.path.join(checkpoint_dir, model_name)
+        self.load_state_dict(T.load(checkpoint_file))

@@ -13,7 +13,7 @@ class PrototypicalNetwork(nn.Module):
         super().__init__()
         self.use_location = use_location
         self.use_direction = use_direction
-        self.proto_encoder = ProtoEncoder(
+        self.encoder = ProtoEncoder(
             input_shape, hid_dim, z_dim, use_location, use_direction
         )
 
@@ -87,7 +87,7 @@ class PrototypicalNetwork(nn.Module):
             )
         else:
             directions = None
-        observation_embeddings, _ = self.proto_encoder.forward(
+        observation_embeddings, _ = self.encoder.forward(
             observations, locations, directions
         )
 

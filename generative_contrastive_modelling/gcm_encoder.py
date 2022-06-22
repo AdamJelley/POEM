@@ -1,3 +1,4 @@
+import os
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,7 +7,14 @@ from generative_contrastive_modelling.encoder import Encoder
 
 
 class GCMEncoder(Encoder):
-    def __init__(self, input_shape, hid_dim, z_dim, use_location, use_direction):
+    def __init__(
+        self,
+        input_shape,
+        hid_dim,
+        z_dim,
+        use_location,
+        use_direction,
+    ):
         super().__init__(x_dim=input_shape, hid_dim=hid_dim, z_dim=z_dim)
         self.use_location = use_location
         self.use_direction = use_direction
@@ -44,4 +52,12 @@ class GCMEncoder(Encoder):
         precision_out = T.exp(self.precision_head(out))
         return mean_out, precision_out
 
-    # TODO: Add model saving
+    def save_checkpoint(self, checkpoint_dir, model_name="gcm_encoder_chkpt.pt"):
+        print("Saving state encoder network checkpoint...")
+        checkpoint_file = os.path.join(checkpoint_dir, model_name)
+        T.save(self.state_dict(), checkpoint_file)
+
+    def load_checkpoint(self, checkpoint_dir, model_name="gcm_encoder_chkpt.pt"):
+        print("Loading state encoder network checkpoint...")
+        checkpoint_file = os.path.join(checkpoint_dir, model_name)
+        self.load_state_dict(T.load(checkpoint_file))
