@@ -1,4 +1,5 @@
 import torch as T
+import time
 import wandb
 
 from generate_trajectories import generate_data
@@ -22,6 +23,7 @@ def train(
 ):
 
     for task in range(num_tasks):
+        t0 = time.time()
         # Run the trained agent to generate training data
         train_dataset = generate_data(
             env,
@@ -81,10 +83,6 @@ def train(
                 }
             )
 
-        print(
-            f"Iteration: {task}, \tLoss: {outputs['loss']:.2f}, \tAccuracy: {outputs['accuracy']:.2f}"
-        )
-
         if log_samples and task == 0:
             (
                 support_environments,
@@ -101,3 +99,8 @@ def train(
                     "Trajectories/Trained agent navigating environment - agent view": support_trajectory_agent_view,
                 }
             )
+
+        iteration_time = time.time() - t0
+        print(
+            f"Iteration: {task}, \tLoss: {outputs['loss']:.2f}, \tAccuracy: {outputs['accuracy']:.2f}, \tDuration: {iteration_time:.1f}s"
+        )
