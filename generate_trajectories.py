@@ -108,7 +108,7 @@ def generate_data(
             obs["partial_pixels"] = numpy.moveaxis(
                 env.get_obs_render(obs["partial_image"], tile_size=8), 2, 0
             )
-            location = env.agent_pos
+            location = tuple(env.agent_pos)
             action = agent.get_action(obs)
             new_obs, reward, done, _ = env.step(action)
 

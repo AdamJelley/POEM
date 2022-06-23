@@ -29,8 +29,9 @@ def parse_train_args():
     )
     parser.add_argument(
         "--exploratory_agent",
-        required=True,
-        help="name of the exploratory model to generate query observations (REQUIRED)",
+        type=str,
+        default=None,
+        help="name of the exploratory model to generate query observations (if None, queries are sampled and removed from support trajectories)",
     )
     parser.add_argument(
         "--learner",
@@ -158,9 +159,6 @@ if __name__ == "__main__":
     trained_model_dir = utils.get_model_dir(
         config.trained_agent, storage_dir="minigrid_rl_starter"
     )
-    exploratory_model_dir = utils.get_model_dir(
-        config.exploratory_agent, storage_dir="minigrid_rl_starter"
-    )
 
     trained_agent = utils.Agent(
         env.observation_space,
@@ -172,15 +170,22 @@ if __name__ == "__main__":
     )
     print("Trained agent loaded\n")
 
-    exploratory_agent = utils.Agent(
-        env.observation_space,
-        env.action_space,
-        exploratory_model_dir,
-        argmax=config.argmax,
-        use_memory=config.memory,
-        use_text=config.text,
-    )
-    print("Exploratory agent loaded\n")
+    if config.exploratory_agent is not None:
+        exploratory_model_dir = utils.get_model_dir(
+            config.exploratory_agent, storage_dir="minigrid_rl_starter"
+        )
+
+        exploratory_agent = utils.Agent(
+            env.observation_space,
+            env.action_space,
+            exploratory_model_dir,
+            argmax=config.argmax,
+            use_memory=config.memory,
+            use_text=config.text,
+        )
+        print("Exploratory agent loaded\n")
+    else:
+        exploratory_agent = None
 
     # Load learner and optimizer
     if config.learner == "GCM":

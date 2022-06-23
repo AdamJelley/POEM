@@ -2,6 +2,7 @@ import numpy as np
 import torch as T
 import torch.nn.functional as F
 import torchvision
+import copy
 import wandb
 
 
@@ -11,26 +12,20 @@ def data_to_tensors(dataset):
         np.array(
             [
                 dataset[episode][step]["obs"]["partial_pixels"]
-                for episode in range(len(dataset))
-                for step in range(len(dataset[episode]))
+                for episode in dataset
+                for step in dataset[episode]
             ]
         )
     )
     targets = T.tensor(
-        np.array(
-            [
-                episode
-                for episode in range(len(dataset))
-                for step in range(len(dataset[episode]))
-            ]
-        )
+        np.array([episode for episode in dataset for step in dataset[episode]])
     )
     locations = T.Tensor(
         np.array(
             [
                 dataset[episode][step]["location"]
-                for episode in range(len(dataset))
-                for step in range(len(dataset[episode]))
+                for episode in dataset
+                for step in dataset[episode]
             ]
         )
     )
@@ -39,8 +34,8 @@ def data_to_tensors(dataset):
             np.array(
                 [
                     dataset[episode][step]["direction"]
-                    for episode in range(len(dataset))
-                    for step in range(len(dataset[episode]))
+                    for episode in dataset
+                    for step in dataset[episode]
                 ]
             )
         ).to(T.int64),
@@ -57,6 +52,29 @@ def data_to_tensors(dataset):
     return trajectories
 
 
+def remove_seen_queries(query_dataset, train_dataset):
+    # print(f"Initial queries: {sum([1 for episode in query_dataset for step in query_dataset[episode]])}")
+    # count=0
+    query_dataset_filtered = copy.deepcopy(query_dataset)
+    for episode in range(len(train_dataset)):
+        for query_step in range(len(query_dataset[episode])):
+            for train_step in range(len(train_dataset[episode])):
+                if (
+                    query_dataset[episode][query_step]["location"]
+                    == train_dataset[episode][train_step]["location"]
+                ) and (
+                    query_dataset[episode][query_step]["direction"]
+                    == train_dataset[episode][train_step]["direction"]
+                ):
+                    del query_dataset_filtered[episode][query_step]
+                    # print(episode, query_step, train_step)
+                    # count += 1
+                    break
+    # print(f"Remaining queries: {sum([1 for j in query_dataset_filtered for i in query_dataset_filtered[j]])}")
+    # print(f"Queries removed: {count}")
+    return query_dataset_filtered
+
+
 def sample_views(trajectories, num_queries):
 
     indices = T.randperm(trajectories["targets"].shape[0])[:num_queries]
@@ -65,13 +83,29 @@ def sample_views(trajectories, num_queries):
     locations = trajectories["locations"][indices]
     directions = trajectories["directions"][indices]
 
+    remaining_indices = T.tensor(
+        [i for i in range(trajectories["targets"].shape[0]) if i not in indices]
+    )
+    remaining_observations = trajectories["observations"][remaining_indices]
+    remaining_targets = trajectories["targets"][remaining_indices]
+    remaining_locations = trajectories["locations"][remaining_indices]
+    remaining_directions = trajectories["directions"][remaining_indices]
+
     views = {
         "observations": observations,
         "targets": targets,
         "locations": locations,
         "directions": directions,
     }
-    return views
+
+    remaining_trajectories = {
+        "observations": remaining_observations,
+        "targets": remaining_targets,
+        "locations": remaining_locations,
+        "directions": remaining_directions,
+    }
+
+    return views, remaining_trajectories
 
 
 def generate_visualisations(train_dataset, query_views):

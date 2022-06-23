@@ -1,9 +1,16 @@
+import numpy as np
 import torch as T
 import time
 import wandb
+import matplotlib.pyplot as plt
 
 from generate_trajectories import generate_data
-from process_trajectories import data_to_tensors, sample_views, generate_visualisations
+from process_trajectories import (
+    data_to_tensors,
+    remove_seen_queries,
+    sample_views,
+    generate_visualisations,
+)
 
 
 def train(
@@ -34,17 +41,26 @@ def train(
 
         support_trajectories = data_to_tensors(train_dataset)
 
-        # Run the exploratory agent to generate query data
-        query_dataset = generate_data(
-            env_copy,
-            exploratory_agent,
-            num_environments,
-            render=render_exploratory,
-        )
+        if exploratory_agent is not None:
+            # Run the exploratory agent to generate query data
+            query_dataset = generate_data(
+                env_copy,
+                exploratory_agent,
+                num_environments,
+                render=render_exploratory,
+            )
 
-        query_trajectories = data_to_tensors(query_dataset)
+            query_dataset_filtered = remove_seen_queries(query_dataset, train_dataset)
 
-        query_views = sample_views(query_trajectories, num_queries)
+            query_trajectories_filtered = data_to_tensors(query_dataset_filtered)
+
+            query_views, _ = sample_views(query_trajectories_filtered, num_queries)
+
+        else:
+            query_views, remaining_support_trajectories = sample_views(
+                support_trajectories, num_queries
+            )
+            support_trajectories = remaining_support_trajectories
 
         if mode == "train":
             # Reset optimizer
@@ -102,5 +118,10 @@ def train(
 
         iteration_time = time.time() - t0
         print(
-            f"Iteration: {task}, \tLoss: {outputs['loss']:.2f}, \tAccuracy: {outputs['accuracy']:.2f}, \tDuration: {iteration_time:.1f}s"
+            f"Iteration: {task}, \t"
+            f"Loss: {outputs['loss']:.2f}, \t"
+            f"Accuracy: {outputs['accuracy']:.2f}, \t"
+            f"Predictions (1st 5): {np.array(outputs['predictions'][0,:5])}, \t"
+            f"Targets (1st 5): {np.array(query_views['targets'][:5])}, \t"
+            f"Duration: {iteration_time:.1f}s"
         )
