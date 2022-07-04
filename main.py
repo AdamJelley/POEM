@@ -39,10 +39,10 @@ def parse_train_args():
         help="Representation learning method: GCM or proto currently supported (REQUIRED)",
     )
     parser.add_argument(
-        "--num_train_tasks", type=int, default=1000, help="Number of training episodes"
+        "--num_train_tasks", type=int, default=2000, help="Number of training episodes"
     )
     parser.add_argument(
-        "--num_test_tasks", type=int, default=10, help="Number of testing episodes"
+        "--num_test_tasks", type=int, default=100, help="Number of testing episodes"
     )
     parser.add_argument(
         "--num_environments",
@@ -92,6 +92,12 @@ def parse_train_args():
     )
     parser.add_argument(
         "--text", action="store_true", default=False, help="add a GRU to the model"
+    )
+    parser.add_argument(
+        "--complete_observations",
+        action="store_true",
+        default=False,
+        help="Agent sees the full environment in support trajectories",
     )
     parser.add_argument(
         "--render_trained",
@@ -222,6 +228,7 @@ if __name__ == "__main__":
         exploratory_agent,
         learner,
         optimizer,
+        config.complete_observations,
         config.render_trained,
         config.render_exploratory,
         config.log_samples,
@@ -251,6 +258,7 @@ if __name__ == "__main__":
         exploratory_agent,
         learner,
         optimizer,
+        config.complete_observations,
         config.render_trained,
         config.render_exploratory,
         False,
