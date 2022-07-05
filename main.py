@@ -39,10 +39,13 @@ def parse_train_args():
         help="Representation learning method: GCM or proto currently supported (REQUIRED)",
     )
     parser.add_argument(
+        "--num_epochs", type=int, default=1, help="Number of training episodes"
+    )
+    parser.add_argument(
         "--num_train_tasks", type=int, default=2000, help="Number of training episodes"
     )
     parser.add_argument(
-        "--num_test_tasks", type=int, default=100, help="Number of testing episodes"
+        "--num_test_tasks", type=int, default=50, help="Number of testing episodes"
     )
     parser.add_argument(
         "--num_environments",
@@ -66,7 +69,7 @@ def parse_train_args():
         "--use_direction",
         action="store_true",
         default=False,
-        help="Allow leanrer to use agent direction info",
+        help="Allow learner to use agent direction info",
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed (default: 0)")
     parser.add_argument(
@@ -112,6 +115,7 @@ def parse_train_args():
         help="render exploratory agent data generation",
     )
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding size")
+    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument(
         "--use_grid",
         action="store_true",
@@ -212,18 +216,20 @@ if __name__ == "__main__":
             config.use_direction,
         )
 
-    optimizer = optim.Adam(learner.encoder.parameters(), lr=0.001)
+    optimizer = optim.Adam(learner.encoder.parameters(), lr=config.lr)
     # wandb.watch(learner, log="all", log_freq=1, log_graph=True)
 
     # Start training
     print("Starting training...")
     train(
         "train",
+        config.num_epochs,
         config.num_train_tasks,
         config.num_environments,
         config.num_queries,
         env,
         env_copy,
+        config.seed,
         trained_agent,
         exploratory_agent,
         learner,
@@ -239,21 +245,17 @@ if __name__ == "__main__":
     learner.encoder.save_checkpoint(checkpoint_dir=wandb.run.dir)
     # learner.encoder.load_checkpoint(checkpoint_dir=wandb.run.dir)
 
-    # Reset environments
-    env.seed(args.test_seed)
-    env_copy.seed(args.test_seed)
-    env.reset()
-    env_copy.reset()
-
     # Test model
     print("Starting testing...")
     train(
         "test",
+        1,
         config.num_test_tasks,
         config.num_environments,
         config.num_queries,
         env,
         env_copy,
+        config.test_seed,
         trained_agent,
         exploratory_agent,
         learner,
