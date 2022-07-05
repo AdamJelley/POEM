@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch as T
 import time
@@ -169,3 +170,17 @@ def train(
                 f"Targets (5): {np.array(query_views['targets'][:5])}, \t"
                 f"Duration: {iteration_time:.1f}s"
             )
+
+        checkpoint_path = os.path.join(wandb.run.dir, "checkpoint.pt")
+        print(f"Saving checkpoint to {checkpoint_path}...")
+        T.save(
+            {
+                "epoch": epoch + 1,
+                "learner_state_dict": learner.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "loss": outputs["loss"],
+                "accuracy": outputs["accuracy"],
+            },
+            checkpoint_path,
+        )
+        wandb.save(checkpoint_path, base_path=checkpoint_path)

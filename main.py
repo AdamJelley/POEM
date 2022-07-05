@@ -128,6 +128,18 @@ def parse_train_args():
         default=False,
         help="Log sample images to wandb",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=False,
+        help="Resume previous run. Note: Must pass checkpoint path to resume from.",
+    )
+    parser.add_argument(
+        "--run_path",
+        type=str,
+        default=None,
+        help="Run path to resume, if resume flag is passed.",
+    )
 
     args = parser.parse_args()
     args.test_seed = args.seed + 1337
@@ -136,13 +148,19 @@ def parse_train_args():
     else:
         # args.input_shape = (3, 352, 352)
         args.input_shape = (3, 56, 56)
+    if args.resume:
+        args.run_id = args.run_path.split("/")[2]
+        assert args.run_id is not None, "Must pass --run_path to resume run."
 
     return args
 
 
 if __name__ == "__main__":
     args = parse_train_args()
-    wandb.init(project="gen-con-rl")
+    if args.resume:
+        wandb.init(id=args.run_id)
+    else:
+        wandb.init(project="gen-con-rl")
     wandb.config.update(args)
     config = wandb.config
 
@@ -218,6 +236,13 @@ if __name__ == "__main__":
 
     optimizer = optim.Adam(learner.encoder.parameters(), lr=config.lr)
     # wandb.watch(learner, log="all", log_freq=1, log_graph=True)
+    if config.resume:
+        checkpoint = T.load(wandb.restore("checkpoint.pt").name)
+        epoch = checkpoint["epoch"]
+        learner.load_state_dict(checkpoint["learner_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        loss = checkpoint["loss"]
+        accuracy = checkpoint["accuracy"]
 
     # Start training
     print("Starting training...")
@@ -241,8 +266,7 @@ if __name__ == "__main__":
     )
     print("Training complete!")
 
-    # Save trained model
-    learner.encoder.save_checkpoint(checkpoint_dir=wandb.run.dir)
+    # Load trained model for testing
     # learner.encoder.load_checkpoint(checkpoint_dir=wandb.run.dir)
 
     # Test model
