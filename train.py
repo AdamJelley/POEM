@@ -60,7 +60,7 @@ def train(
                 )
 
                 query_trajectories = data_to_tensors(train_dataset)
-                # query_trajectories = orientate_observations(query_trajectories)
+                query_trajectories = orientate_observations(query_trajectories)
 
                 query_views, _ = sample_views(query_trajectories, num_queries)
             else:

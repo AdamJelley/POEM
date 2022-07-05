@@ -80,6 +80,25 @@ def complete_observation_data_to_tensors(dataset):
     return trajectories
 
 
+def orientate_observations(trajectories):
+    for i in range(len(trajectories["directions"])):
+        if trajectories["directions"][i][0] == 1:
+            trajectories["observations"][i] = T.rot90(
+                trajectories["observations"][i], -1, [1, 2]
+            )
+        elif trajectories["directions"][i][1] == 1:
+            trajectories["observations"][i] = T.rot90(
+                trajectories["observations"][i], 2, [1, 2]
+            )
+        elif trajectories["directions"][i][2] == 1:
+            trajectories["observations"][i] = T.rot90(
+                trajectories["observations"][i], 1, [1, 2]
+            )
+        elif trajectories["directions"][i][3] == 1:
+            pass
+    return trajectories
+
+
 def remove_seen_queries(query_dataset, train_dataset):
     # print(f"Initial queries: {sum([1 for episode in query_dataset for step in query_dataset[episode]])}")
     # count=0
