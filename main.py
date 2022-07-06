@@ -114,6 +114,7 @@ def parse_train_args():
         default=False,
         help="render exploratory agent data generation",
     )
+    parser.add_argument("--hidden_dim", type=int, default=128, help="Hidden layer size")
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding size")
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument(
@@ -158,7 +159,7 @@ def parse_train_args():
 if __name__ == "__main__":
     args = parse_train_args()
     if args.resume:
-        wandb.init(id=args.run_id)
+        wandb.init(id=args.run_id, resume="must")
     else:
         wandb.init(project="gen-con-rl")
     wandb.config.update(args)
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
             config.input_shape,
-            config.embedding_dim,
+            config.hidden_dim,
             config.embedding_dim,
             config.use_location,
             config.use_direction,
@@ -228,7 +229,7 @@ if __name__ == "__main__":
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
             config.input_shape,
-            config.embedding_dim,
+            config.hidden_dim,
             config.embedding_dim,
             config.use_location,
             config.use_direction,
