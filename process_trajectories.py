@@ -53,7 +53,7 @@ def data_to_tensors(dataset):
 
 
 def complete_observation_data_to_tensors(dataset):
-    observations = observations = F.interpolate(
+    observations = F.interpolate(
         T.Tensor(
             np.array([dataset[episode][0]["obs"]["pixels"] for episode in dataset])
         ),

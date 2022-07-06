@@ -1,5 +1,4 @@
 import argparse
-from errno import ENODEV
 import os
 import numpy
 import pickle
