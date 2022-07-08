@@ -4,18 +4,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from generative_contrastive_modelling.proto_encoder import ProtoEncoder
+from generative_contrastive_modelling.projection_network import ProjectionNetwork
 
 
 class PrototypicalNetwork(nn.Module):
     def __init__(
-        self, input_shape, hid_dim, z_dim, use_location=False, use_direction=False
+        self,
+        input_shape,
+        hid_dim,
+        z_dim,
+        use_location=False,
+        use_direction=False,
+        project_embedding=False,
     ):
         super().__init__()
         self.use_location = use_location
         self.use_direction = use_direction
+        self.project_embedding = project_embedding
         self.encoder = ProtoEncoder(
             input_shape, hid_dim, z_dim, use_location, use_direction
         )
+        if self.project_embedding:
+            self.projection_network = ProjectionNetwork(z_dim, z_dim, z_dim)
 
     def get_num_samples(self, targets, num_classes, dtype=None):
         batch_size = targets.size(0)
@@ -99,8 +109,13 @@ class PrototypicalNetwork(nn.Module):
 
         env_proto_embeddings = self.get_prototypes(support_embeddings, support_targets)
 
+        if self.project_embedding:
+            env_projections = self.projection_network.forward(env_proto_embeddings)
+        else:
+            env_projections = env_proto_embeddings
+
         euclidian_distances = self.euclidian_distances(
-            env_proto_embeddings, query_embeddings
+            env_projections, query_embeddings
         )
 
         _, predictions = euclidian_distances.min(1)

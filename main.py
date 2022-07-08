@@ -46,7 +46,7 @@ def parse_train_args():
         "--num_train_tasks", type=int, default=2000, help="Number of training episodes"
     )
     parser.add_argument(
-        "--num_test_tasks", type=int, default=50, help="Number of testing episodes"
+        "--num_test_tasks", type=int, default=100, help="Number of testing episodes"
     )
     parser.add_argument(
         "--num_environments",
@@ -71,6 +71,12 @@ def parse_train_args():
         action="store_true",
         default=False,
         help="Allow learner to use agent direction info",
+    )
+    parser.add_argument(
+        "--project_embedding",
+        action="store_true",
+        default=False,
+        help="Project environment embedding",
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed (default: 0)")
     parser.add_argument(
@@ -161,6 +167,8 @@ if __name__ == "__main__":
     args = parse_train_args()
     if args.resume:
         wandb.init(id=args.run_id, resume="must")
+        args.resume = False  # To keep wandb config consistent
+        args.run_path = None
     else:
         wandb.init(project="gen-con-rl")
     wandb.config.update(args)
@@ -209,7 +217,7 @@ if __name__ == "__main__":
             env.observation_space,
             env.action_space,
             exploratory_model_dir,
-            argmax=config.argmax,
+            argmax=False,
             use_memory=config.memory,
             use_text=config.text,
         )
@@ -234,6 +242,7 @@ if __name__ == "__main__":
             config.embedding_dim,
             config.use_location,
             config.use_direction,
+            config.project_embedding,
         )
 
     elif config.learner == "recurrent":
@@ -243,6 +252,7 @@ if __name__ == "__main__":
             config.embedding_dim,
             config.use_location,
             config.use_direction,
+            config.project_embedding,
         )
 
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)

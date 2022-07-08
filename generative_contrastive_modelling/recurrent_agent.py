@@ -3,8 +3,9 @@ import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 
-from generative_contrastive_modelling.recurrent_encoder import RecurrentEncoder
 from generative_contrastive_modelling.proto_encoder import ProtoEncoder
+from generative_contrastive_modelling.recurrent_encoder import RecurrentEncoder
+from generative_contrastive_modelling.projection_network import ProjectionNetwork
 
 
 class RecurrentAgent(nn.Module):
@@ -15,15 +16,19 @@ class RecurrentAgent(nn.Module):
         z_dim,
         use_location,
         use_direction,
+        project_embedding,
     ):
         super().__init__()
         self.z_dim = z_dim
         self.use_location = use_location
         self.use_direction = use_direction
+        self.project_embedding = project_embedding
         self.encoder = ProtoEncoder(
             input_shape, hid_dim, z_dim, use_location, use_direction
         )
         self.recurrent_encoder = RecurrentEncoder(z_dim, z_dim)
+        if self.project_embedding:
+            self.projection_network = ProjectionNetwork(z_dim, z_dim, z_dim)
 
     def euclidian_distances(self, prototypes, embeddings):
         distances = T.sum(
@@ -68,10 +73,14 @@ class RecurrentAgent(nn.Module):
             trajectory_embedding = support_embeddings[support_targets == target]
             _, env_embedding = self.recurrent_encoder(trajectory_embedding)
             env_proto_embeddings[0, target, :] = env_embedding.unsqueeze(0)
-        env_proto_embeddings = self.get_prototypes(support_embeddings, support_targets)
+
+        if self.project_embedding:
+            env_projections = self.projection_network.forward(env_proto_embeddings)
+        else:
+            env_projections = env_proto_embeddings
 
         euclidian_distances = self.euclidian_distances(
-            env_proto_embeddings, query_embeddings
+            env_projections, query_embeddings
         )
 
         _, predictions = euclidian_distances.min(1)
