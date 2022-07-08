@@ -12,6 +12,7 @@ from generate_trajectories import generate_data
 from process_trajectories import data_to_tensors, sample_views, generate_visualisations
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
+from generative_contrastive_modelling.recurrent_agent import RecurrentAgent
 from train import train
 
 
@@ -36,7 +37,7 @@ def parse_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Representation learning method: GCM or proto currently supported (REQUIRED)",
+        help="Representation learning method: GCM, proto, recurrent currently supported (REQUIRED)",
     )
     parser.add_argument(
         "--num_epochs", type=int, default=1, help="Number of training episodes"
@@ -235,7 +236,16 @@ if __name__ == "__main__":
             config.use_direction,
         )
 
-    optimizer = optim.Adam(learner.encoder.parameters(), lr=config.lr)
+    elif config.learner == "recurrent":
+        learner = RecurrentAgent(
+            config.input_shape,
+            config.hidden_dim,
+            config.embedding_dim,
+            config.use_location,
+            config.use_direction,
+        )
+
+    optimizer = optim.Adam(learner.parameters(), lr=config.lr)
     # wandb.watch(learner, log="all", log_freq=1, log_graph=True)
     if config.resume:
         checkpoint = T.load(wandb.restore("checkpoint.pt").name)
