@@ -12,7 +12,8 @@ class ProjectionNetwork(nn.Module):
         self.projection_network = nn.Sequential(
             self.linear_block(self.input_dim, self.hid_dim),
             self.linear_block(self.hid_dim, self.hid_dim),
-            self.linear_block(self.hid_dim, self.output_dim),
+            self.linear_block(self.hid_dim, self.hid_dim),
+            nn.Linear(self.hid_dim, self.output_dim),
         )
 
     def linear_block(self, in_features, out_features):

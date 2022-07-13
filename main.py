@@ -13,6 +13,9 @@ from process_trajectories import data_to_tensors, sample_views, generate_visuali
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
 from generative_contrastive_modelling.recurrent_agent import RecurrentAgent
+from generative_contrastive_modelling.complete_observation_learner import (
+    CompleteObservationLearner,
+)
 from train import train
 
 
@@ -37,7 +40,7 @@ def parse_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Representation learning method: GCM, proto, recurrent currently supported (REQUIRED)",
+        help="Representation learning method: GCM, proto, recurrent, complete_observations currently supported (REQUIRED)",
     )
     parser.add_argument(
         "--num_epochs", type=int, default=1, help="Number of training episodes"
@@ -102,12 +105,6 @@ def parse_train_args():
     )
     parser.add_argument(
         "--text", action="store_true", default=False, help="add a GRU to the model"
-    )
-    parser.add_argument(
-        "--complete_observations",
-        action="store_true",
-        default=False,
-        help="Agent sees the full environment in support trajectories",
     )
     parser.add_argument(
         "--render_trained",
@@ -199,9 +196,9 @@ if __name__ == "__main__":
     )
 
     trained_agent = utils.Agent(
-        env.observation_space,
-        env.action_space,
-        trained_model_dir,
+        obs_space=env.observation_space,
+        action_space=env.action_space,
+        model_dir=trained_model_dir,
         argmax=config.argmax,
         use_memory=config.memory,
         use_text=config.text,
@@ -214,9 +211,9 @@ if __name__ == "__main__":
         )
 
         exploratory_agent = utils.Agent(
-            env.observation_space,
-            env.action_space,
-            exploratory_model_dir,
+            obs_space=env.observation_space,
+            action_space=env.action_space,
+            model_dir=exploratory_model_dir,
             argmax=False,
             use_memory=config.memory,
             use_text=config.text,
@@ -228,31 +225,40 @@ if __name__ == "__main__":
     # Load learner and optimizer
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
-            config.input_shape,
-            config.hidden_dim,
-            config.embedding_dim,
-            config.use_location,
-            config.use_direction,
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
         )
 
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
-            config.input_shape,
-            config.hidden_dim,
-            config.embedding_dim,
-            config.use_location,
-            config.use_direction,
-            config.project_embedding,
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
+            project_embedding=config.project_embedding,
         )
 
     elif config.learner == "recurrent":
         learner = RecurrentAgent(
-            config.input_shape,
-            config.hidden_dim,
-            config.embedding_dim,
-            config.use_location,
-            config.use_direction,
-            config.project_embedding,
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
+            project_embedding=config.project_embedding,
+        )
+    elif config.learner == "complete_observations":
+        learner = CompleteObservationLearner(
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            orient_queries=True,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
         )
 
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)
@@ -268,22 +274,21 @@ if __name__ == "__main__":
     # Start training
     print("Starting training...")
     train(
-        "train",
-        config.num_epochs,
-        config.num_train_tasks,
-        config.num_environments,
-        config.num_queries,
-        env,
-        env_copy,
-        config.seed,
-        trained_agent,
-        exploratory_agent,
-        learner,
-        optimizer,
-        config.complete_observations,
-        config.render_trained,
-        config.render_exploratory,
-        config.log_samples,
+        mode="train",
+        num_epochs=config.num_epochs,
+        num_tasks=config.num_train_tasks,
+        num_environments=config.num_environments,
+        num_queries=config.num_queries,
+        env=env,
+        env_copy=env_copy,
+        env_seed=config.seed,
+        trained_agent=trained_agent,
+        exploratory_agent=exploratory_agent,
+        learner=learner,
+        optimizer=optimizer,
+        render_trained=config.render_trained,
+        render_exploratory=config.render_exploratory,
+        log_samples=config.log_samples,
     )
     print("Training complete!")
 
@@ -293,22 +298,21 @@ if __name__ == "__main__":
     # Test model
     print("Starting testing...")
     train(
-        "test",
-        1,
-        config.num_test_tasks,
-        config.num_environments,
-        config.num_queries,
-        env,
-        env_copy,
-        config.test_seed,
-        trained_agent,
-        exploratory_agent,
-        learner,
-        optimizer,
-        config.complete_observations,
-        config.render_trained,
-        config.render_exploratory,
-        False,
+        mode="test",
+        num_epochs=1,
+        num_tasks=config.num_test_tasks,
+        num_environments=config.num_environments,
+        num_queries=config.num_queries,
+        env=env,
+        env_copy=env_copy,
+        env_seed=config.test_seed,
+        trained_agent=trained_agent,
+        exploratory_agent=exploratory_agent,
+        learner=learner,
+        optimizer=optimizer,
+        render_trained=config.render_trained,
+        render_exploratory=config.render_exploratory,
+        log_samples=False,
     )
     print("Testing complete!\n")
 

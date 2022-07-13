@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 
 from generate_trajectories import generate_data
 from process_trajectories import (
-    complete_observation_data_to_tensors,
     data_to_tensors,
     orientate_observations,
     remove_seen_queries,
@@ -29,7 +28,6 @@ def train(
     exploratory_agent,
     learner,
     optimizer,
-    complete_observations=False,
     render_trained=False,
     render_exploratory=False,
     log_samples=False,
@@ -47,60 +45,38 @@ def train(
         print("---------")
         for task in range(num_tasks):
             t0 = time.time()
-            if complete_observations:
+            # Run the trained agent to generate training data
+            train_dataset = generate_data(
+                env,
+                trained_agent,
+                num_environments,
+                render=render_trained,
+            )
+
+            support_trajectories = data_to_tensors(train_dataset)
+
+            if exploratory_agent is not None:
                 # Run the exploratory agent to generate query data
-                train_dataset = generate_data(
-                    env,
-                    trained_agent,
+                query_dataset = generate_data(
+                    env_copy,
+                    exploratory_agent,
                     num_environments,
-                    render=render_trained,
+                    render=render_exploratory,
                 )
 
-                support_trajectories = complete_observation_data_to_tensors(
-                    train_dataset
+                query_dataset_filtered = remove_seen_queries(
+                    query_dataset, train_dataset
                 )
 
-                query_trajectories = data_to_tensors(train_dataset)
-                query_trajectories = orientate_observations(query_trajectories)
+                query_trajectories_filtered = data_to_tensors(query_dataset_filtered)
 
-                query_views, _ = sample_views(query_trajectories, num_queries)
+                query_views, _ = sample_views(query_trajectories_filtered, num_queries)
+
             else:
-                # Run the trained agent to generate training data
-                train_dataset = generate_data(
-                    env,
-                    trained_agent,
-                    num_environments,
-                    render=render_trained,
+                query_views, remaining_support_trajectories = sample_views(
+                    support_trajectories, num_queries
                 )
-
-                support_trajectories = data_to_tensors(train_dataset)
-
-                if exploratory_agent is not None:
-                    # Run the exploratory agent to generate query data
-                    query_dataset = generate_data(
-                        env_copy,
-                        exploratory_agent,
-                        num_environments,
-                        render=render_exploratory,
-                    )
-
-                    query_dataset_filtered = remove_seen_queries(
-                        query_dataset, train_dataset
-                    )
-
-                    query_trajectories_filtered = data_to_tensors(
-                        query_dataset_filtered
-                    )
-
-                    query_views, _ = sample_views(
-                        query_trajectories_filtered, num_queries
-                    )
-
-                else:
-                    query_views, remaining_support_trajectories = sample_views(
-                        support_trajectories, num_queries
-                    )
-                    support_trajectories = remaining_support_trajectories
+                support_trajectories = remaining_support_trajectories
 
             assert (
                 len(T.unique(support_trajectories["targets"])) == num_environments

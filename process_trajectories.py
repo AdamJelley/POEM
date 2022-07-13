@@ -41,40 +41,21 @@ def data_to_tensors(dataset):
         ).to(T.int64),
         4,
     )
-
-    trajectories = {
-        "observations": observations,
-        "targets": targets,
-        "locations": locations,
-        "directions": directions,
-    }
-
-    return trajectories
-
-
-def complete_observation_data_to_tensors(dataset):
-    observations = F.interpolate(
+    environments = F.interpolate(
         T.Tensor(
             np.array([dataset[episode][0]["obs"]["pixels"] for episode in dataset])
         ),
         size=dataset[0][0]["obs"]["partial_pixels"].shape[1:],
     )
-    targets = T.tensor(np.array([episode for episode in dataset]))
-    locations = T.Tensor(
-        np.array([dataset[episode][0]["location"] for episode in dataset])
-    )
-    directions = F.one_hot(
-        T.Tensor(
-            np.array([dataset[episode][0]["direction"] for episode in dataset])
-        ).to(T.int64),
-        4,
-    )
+    environment_targets = T.tensor(np.array([episode for episode in dataset]))
 
     trajectories = {
         "observations": observations,
         "targets": targets,
         "locations": locations,
         "directions": directions,
+        "environments": environments,
+        "environment_targets": environment_targets,
     }
 
     return trajectories
@@ -150,6 +131,8 @@ def sample_views(trajectories, num_queries):
         "targets": remaining_targets,
         "locations": remaining_locations,
         "directions": remaining_directions,
+        "environments": trajectories["environments"],
+        "environment_targets": trajectories["environment_targets"],
     }
 
     return views, remaining_trajectories
