@@ -39,7 +39,7 @@ def parse_train_args():
         "--model_run_path",
         required=True,
         type=str,
-        help="Wandb run path where learner model is saved",
+        help="Wandb run path where learner was trained",
     )
     parser.add_argument(
         "--num_episodes", type=int, default=2000, help="Number of training episodes"
@@ -47,7 +47,7 @@ def parse_train_args():
     parser.add_argument(
         "--num_environments",
         type=int,
-        default=5,
+        default=10,
         help="number of environments in batch",
     )
     parser.add_argument(
@@ -103,6 +103,12 @@ def parse_train_args():
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding size")
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument(
+        "--sample",
+        action="store_true",
+        default=False,
+        help="Sample environment representation if Gaussian",
+    )
+    parser.add_argument(
         "--decode_grid",
         action="store_true",
         default=False,
@@ -123,6 +129,10 @@ def parse_train_args():
     else:
         # args.input_shape = (3, 352, 352)
         args.output_shape = (3, 32, 32)
+    if args.sample:
+        assert (
+            args.learner == "GCM"
+        ), "Cannot sample environment representation for non-distributional representation."
     return args
 
 
@@ -208,20 +218,26 @@ if __name__ == "__main__":
             render=config.render_agent,
         )
         train_trajectories = data_to_tensors(train_dataset)
-        environments = (
-            F.interpolate(
-                train_trajectories["environments"],
-                size=config.output_shape[1:],
-            )
-            / 255.0
-        )  # Since decoder uses sigmoid activation
+        if config.decode_grid:
+            # Periodically sample (3, 56, 56) down to grid representation of (3, 11, 11)
+            environments = train_trajectories["environments"][:, :, 2::5, 2::5] / 255.0
+        else:
+            environments = (
+                F.interpolate(
+                    train_trajectories["environments"],
+                    size=config.output_shape[1:],
+                )
+                / 255.0
+            )  # Since decoder uses sigmoid activation
 
         env_means, env_precisions = learner.compute_environment_representations(
             train_trajectories
         )
 
         env_reconstructions = decoder.forward(
-            env_means.squeeze(), env_precisions.squeeze()
+            means=env_means.squeeze(),
+            precisions=env_precisions.squeeze(),
+            sample=config.sample,
         )
         reconstruction_loss = F.mse_loss(env_reconstructions, environments)
 
