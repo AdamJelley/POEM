@@ -189,7 +189,78 @@ class GenerativeContrastiveModelling(nn.Module):
         ).sum(dim=-1)
         return product_mean, product_precision, log_product_normalisation
 
+    def compute_environment_representations(self, support_trajectories):
+
+        support_means, support_precisions = self.encoder.forward(
+            support_trajectories["observations"],
+            support_trajectories["locations"] if self.use_location else None,
+            support_trajectories["directions"] if self.use_direction else None,
+        )
+
+        support_means = support_means.unsqueeze(0)
+        support_precisions = support_precisions.unsqueeze(0)
+        support_targets = support_trajectories["targets"].unsqueeze(0)
+
+        (
+            env_means,
+            env_precisions,
+            log_env_normalisation,
+        ) = self.inner_gaussian_product(
+            support_means, support_precisions, support_targets
+        )
+
+        return env_means, env_precisions
+
     def compute_loss(self, support_trajectories, query_views):
+
+        support_means, support_precisions = self.encoder.forward(
+            support_trajectories["observations"],
+            support_trajectories["locations"] if self.use_location else None,
+            support_trajectories["directions"] if self.use_direction else None,
+        )
+
+        query_means, query_precisions = self.encoder.forward(
+            query_views["observations"],
+            query_views["locations"] if self.use_location else None,
+            query_views["directions"] if self.use_direction else None,
+        )
+
+        support_means = support_means.unsqueeze(0)
+        support_precisions = support_precisions.unsqueeze(0)
+        support_targets = support_trajectories["targets"].unsqueeze(0)
+        query_means = query_means.unsqueeze(0)
+        query_precisions = query_precisions.unsqueeze(0)
+        query_targets = query_views["targets"].unsqueeze(0)
+
+        (
+            env_proto_means,
+            env_proto_precisions,
+            log_env_proto_normalisation,
+        ) = self.inner_gaussian_product(
+            support_means, support_precisions, support_targets
+        )
+
+        (
+            env_obs_product_mean,
+            env_obs_product_precision,
+            log_env_obs_normalisation,
+        ) = self.outer_gaussian_product(
+            query_means, query_precisions, env_proto_means, env_proto_precisions
+        )
+
+        _, predictions = log_env_obs_normalisation.max(1)
+
+        loss = F.cross_entropy(log_env_obs_normalisation, query_targets)
+        accuracy = torch.eq(predictions, query_targets).float().mean()
+
+        output = {}
+        output["predictions"] = predictions
+        output["loss"] = loss
+        output["accuracy"] = accuracy
+
+        return output
+
+    def compute_loss2(self, support_trajectories, query_views):
 
         num_support_obs = support_trajectories["targets"].shape[0]
         num_query_obs = query_views["targets"].shape[0]
@@ -206,7 +277,7 @@ class GenerativeContrastiveModelling(nn.Module):
         if self.use_direction:
             directions = torch.cat(
                 [support_trajectories["directions"], query_views["directions"]], dim=0
-            )
+            ).detach()
         else:
             directions = None
         observation_means, observation_precisions = self.encoder.forward(

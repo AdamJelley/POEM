@@ -77,32 +77,37 @@ class PrototypicalNetwork(nn.Module):
         )
         return distances
 
-    def compute_loss(self, support_trajectories, query_views):
-
-        num_support_obs = support_trajectories["targets"].shape[0]
-        num_query_obs = query_views["targets"].shape[0]
-
-        observations = torch.cat(
-            [support_trajectories["observations"], query_views["observations"]], dim=0
-        ).detach()
-        if self.use_location:
-            locations = torch.cat(
-                [support_trajectories["locations"], query_views["locations"]], dim=0
-            ).detach()
-        else:
-            locations = None
-        if self.use_direction:
-            directions = torch.cat(
-                [support_trajectories["directions"], query_views["directions"]], dim=0
-            )
-        else:
-            directions = None
-        observation_embeddings, _ = self.encoder.forward(
-            observations, locations, directions
+    def compute_environment_representations(self, support_trajectories):
+        support_embeddings, _ = self.encoder.forward(
+            support_trajectories["observations"],
+            support_trajectories["locations"] if self.use_location else None,
+            support_trajectories["directions"] if self.use_direction else None,
         )
 
-        support_embeddings = observation_embeddings[:num_support_obs].unsqueeze(0)
-        query_embeddings = observation_embeddings[num_support_obs:].unsqueeze(0)
+        support_embeddings = support_embeddings.unsqueeze(0)
+        support_targets = support_trajectories["targets"].unsqueeze(0)
+
+        env_proto_embeddings = self.get_prototypes(support_embeddings, support_targets)
+        env_proto_precisions = torch.ones_like(env_proto_embeddings)
+
+        return env_proto_embeddings, env_proto_precisions
+
+    def compute_loss(self, support_trajectories, query_views):
+
+        support_embeddings, _ = self.encoder.forward(
+            support_trajectories["observations"],
+            support_trajectories["locations"] if self.use_location else None,
+            support_trajectories["directions"] if self.use_direction else None,
+        )
+
+        query_embeddings, _ = self.encoder.forward(
+            query_views["observations"],
+            query_views["locations"],
+            query_views["directions"],
+        )
+
+        support_embeddings = support_embeddings.unsqueeze(0)
+        query_embeddings = query_embeddings.unsqueeze(0)
 
         support_targets = support_trajectories["targets"].unsqueeze(0)
         query_targets = query_views["targets"].unsqueeze(0)
