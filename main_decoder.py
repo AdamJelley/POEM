@@ -13,7 +13,9 @@ from generate_trajectories import generate_data
 from process_trajectories import data_to_tensors
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
+from generative_contrastive_modelling.recurrent_agent import RecurrentAgent
 from generative_contrastive_modelling.environment_decoder import EnvironmentDecoder
+from utils import load_checkpoint
 
 
 def parse_train_args():
@@ -32,6 +34,12 @@ def parse_train_args():
         "--learner",
         required=True,
         help="Representation learning method: GCM or proto currently supported (REQUIRED)",
+    )
+    parser.add_argument(
+        "--model_run_path",
+        required=True,
+        type=str,
+        help="Wandb run path where learner model is saved",
     )
     parser.add_argument(
         "--num_episodes", type=int, default=2000, help="Number of training episodes"
@@ -53,6 +61,12 @@ def parse_train_args():
         action="store_true",
         default=False,
         help="Allow learner to use agent direction info",
+    )
+    parser.add_argument(
+        "--project_embedding",
+        action="store_true",
+        default=False,
+        help="Project environment embedding",
     )
     parser.add_argument("--seed", type=int, default=0, help="random seed (default: 0)")
     parser.add_argument(
@@ -89,10 +103,10 @@ def parse_train_args():
     parser.add_argument("--embedding_dim", type=int, default=128, help="Embedding size")
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument(
-        "--use_grid",
+        "--decode_grid",
         action="store_true",
         default=False,
-        help="Use grid input rather than pixels",
+        help="Use grid output rather than pixels",
     )
     parser.add_argument(
         "--log_frequency",
@@ -103,11 +117,12 @@ def parse_train_args():
 
     args = parser.parse_args()
     args.test_seed = args.seed + 1337
-    if args.use_grid:
-        args.input_shape = (3, 11, 11)
+    args.input_shape = (3, 56, 56)
+    if args.decode_grid:
+        args.output_shape = (3, 11, 11)
     else:
         # args.input_shape = (3, 352, 352)
-        args.input_shape = (3, 32, 32)
+        args.output_shape = (3, 32, 32)
     return args
 
 
@@ -137,9 +152,9 @@ if __name__ == "__main__":
     )
 
     agent = utils.Agent(
-        env.observation_space,
-        env.action_space,
-        agent_model_dir,
+        obs_space=env.observation_space,
+        action_space=env.action_space,
+        model_dir=agent_model_dir,
         argmax=config.argmax,
         use_memory=config.memory,
         use_text=config.text,
@@ -149,24 +164,39 @@ if __name__ == "__main__":
     # Load learner and optimizer
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
-            config.input_shape,
-            config.hidden_dim,
-            config.embedding_dim,
-            config.use_location,
-            config.use_direction,
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
         )
 
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
-            config.input_shape,
-            config.hidden_dim,
-            config.embedding_dim,
-            config.use_location,
-            config.use_direction,
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
+            project_embedding=config.project_embedding,
         )
 
+    elif config.learner == "recurrent":
+        learner = RecurrentAgent(
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
+            project_embedding=config.project_embedding,
+        )
+
+    print(f"Loading trained learner from {config.model_run_path}...")
+    checkpoint = load_checkpoint(run_path=config.model_run_path)
+    learner.load_state_dict(checkpoint["learner_state_dict"])
+
     decoder = EnvironmentDecoder(
-        config.embedding_dim, config.hidden_dim, config.input_shape
+        config.embedding_dim, config.hidden_dim, config.output_shape
     )
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=config.lr)
 
@@ -180,35 +210,18 @@ if __name__ == "__main__":
         train_trajectories = data_to_tensors(train_dataset)
         environments = (
             F.interpolate(
-                T.Tensor(
-                    np.array(
-                        [
-                            train_dataset[episode][0]["obs"]["pixels"]
-                            for episode in train_dataset
-                        ]
-                    )
-                ),
-                size=config.input_shape[-1],
+                train_trajectories["environments"],
+                size=config.output_shape[1:],
             )
             / 255.0
-        )
-        observations = train_trajectories["observations"]
-        locations = train_trajectories["locations"] if config.use_location else None
-        directions = train_trajectories["directions"] if config.use_direction else None
+        )  # Since decoder uses sigmoid activation
 
-        means, precisions = learner.encoder.forward(observations, locations, directions)
-        means = means.unsqueeze(0).detach()
-        precisions = precisions.unsqueeze(0).detach()
-        (
-            env_proto_means,
-            env_proto_precisions,
-            log_env_proto_normalisation,
-        ) = learner.inner_gaussian_product(
-            means, precisions, train_trajectories["targets"].unsqueeze(0)
+        env_means, env_precisions = learner.compute_environment_representations(
+            train_trajectories
         )
 
         env_reconstructions = decoder.forward(
-            env_proto_means.squeeze(), env_proto_precisions.squeeze()
+            env_means.squeeze(), env_precisions.squeeze()
         )
         reconstruction_loss = F.mse_loss(env_reconstructions, environments)
 
