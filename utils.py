@@ -13,8 +13,7 @@ def load_checkpoint(run_path):
         print("Model not found. Downloading model via wandb api...")
         api = wandb.Api()
         run = api.run(run_path)
-        checkpoint = run.file("checkpoint.pt").download(
-            root=f"./wandb/saved_checkpoints/{run_id}"
-        )
+        run.file("checkpoint.pt").download(root=f"./wandb/saved_checkpoints/{run_id}")
+        checkpoint = T.load(model_save_path)
         print("Model downloaded and loaded!")
     return checkpoint
