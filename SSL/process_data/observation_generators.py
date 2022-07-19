@@ -9,11 +9,18 @@ import random
 
 class CropTrajectoryGenerator:
     def __init__(
-        self, batch_size, trajectory_length, image_shape, random=True, patch_size=10
+        self,
+        batch_size,
+        trajectory_length,
+        image_shape,
+        output_shape,
+        random=True,
+        patch_size=10,
     ):
         self.batch_size = batch_size
         self.trajectory_length = trajectory_length
         self.image_shape = image_shape
+        self.output_shape = output_shape
         self.action_length = 4  # Corresponds to 4 coordinates of 2D crop
         self.random = random
         self.patch_size = patch_size
@@ -24,22 +31,22 @@ class CropTrajectoryGenerator:
 
         x1 = (
             self.rng.random((self.batch_size, self.trajectory_length))
-            * (self.image_shape.width - 2)
+            * (self.image_shape[2] - 2)
             + 1
         )
         x2 = (
             self.rng.random((self.batch_size, self.trajectory_length))
-            * (self.image_shape.width - 2)
+            * (self.image_shape[2] - 2)
             + 1
         )
         y1 = (
             self.rng.random((self.batch_size, self.trajectory_length))
-            * (self.image_shape.height - 2)
+            * (self.image_shape[1] - 2)
             + 1
         )
         y2 = (
             self.rng.random((self.batch_size, self.trajectory_length))
-            * (self.image_shape.height - 2)
+            * (self.image_shape[1] - 2)
             + 1
         )
 
@@ -57,12 +64,12 @@ class CropTrajectoryGenerator:
 
         xmin = np.floor(
             self.rng.random((self.batch_size, self.trajectory_length))
-            * (self.image_shape.width - 1 - self.patch_size)
+            * (self.image_shape[2] - 1 - self.patch_size)
         ).astype(int)
         xmax = xmin + self.patch_size
         ymin = np.floor(
             self.rng.random((self.batch_size, self.trajectory_length))
-            * (self.image_shape.height - 1 - self.patch_size)
+            * (self.image_shape[1] - 1 - self.patch_size)
         ).astype(int)
         ymax = ymin + self.patch_size
 
@@ -87,7 +94,9 @@ class CropTrajectoryGenerator:
         else:
             ((xmin, ymin), (xmax, ymax)) = self.generate_patch_crop_coordinates()
 
-        cropped_images = T.zeros_like(repeated_images)
+        cropped_images = T.zeros(
+            self.batch_size, self.trajectory_length, *self.output_shape
+        )  # T.zeros_like(repeated_images)
         crop_coordinates = T.zeros(
             (self.batch_size, self.trajectory_length, self.action_length)
         )
@@ -97,7 +106,8 @@ class CropTrajectoryGenerator:
                     repeated_images[
                         i, j, :, ymin[i, j] : ymax[i, j], xmin[i, j] : xmax[i, j]
                     ],
-                    size=(self.image_shape.height, self.image_shape.width),
+                    size=(self.output_shape[1], self.output_shape[2]),
+                    # size=(self.image_shape.height, self.image_shape.width),
                 )
                 crop_coordinates[i, j, :] = T.Tensor(
                     [xmin[i, j], ymin[i, j], xmax[i, j], ymax[i, j]]
@@ -118,36 +128,29 @@ class RandomApply(nn.Module):
 
 
 class AugmentationTrajectoryGenerator:
-    def __init__(
-        self,
-        batch_size,
-        trajectory_length,
-        image_shape,
-    ):
+    def __init__(self, batch_size, trajectory_length, image_shape, output_shape):
         self.batch_size = batch_size
         self.trajectory_length = trajectory_length
         self.image_shape = image_shape
+        self.output_shape = output_shape
 
         self.augment = nn.Sequential(
             RandomApply(Transforms.ColorJitter(0.8, 0.8, 0.8, 0.2), p=0.3),
             Transforms.RandomGrayscale(p=0.2),
             Transforms.RandomHorizontalFlip(),
             RandomApply(Transforms.GaussianBlur((3, 3), (1.0, 2.0)), p=0.2),
-            Transforms.RandomResizedCrop(
-                (self.image_shape.height, self.image_shape.width)
-            ),
-            Transforms.Normalize(
-                mean=T.tensor([0.485, 0.456, 0.406]),
-                std=T.tensor([0.229, 0.224, 0.225]),
-            ),
+            Transforms.RandomResizedCrop((self.output_shape[1], self.output_shape[2])),
         )
 
     def generate_trajectories(self, images):
         augmented_images = (
-            T.zeros_like(images).unsqueeze(1).repeat(1, self.trajectory_length, 1, 1, 1)
+            T.zeros(self.batch_size, *self.output_shape)
+            .unsqueeze(1)
+            .repeat(1, self.trajectory_length, 1, 1, 1)
         )
         for i, image in enumerate(images):
             for view in range(self.trajectory_length):
                 augmented_image = self.augment(image)
                 augmented_images[i, view, :, :, :] = augmented_image
-        return augmented_images
+        crop_coordinates = None
+        return augmented_images, crop_coordinates

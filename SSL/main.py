@@ -1,6 +1,7 @@
 from requests import patch
 import torch as T
 import torch.optim as optim
+import torchvision
 import numpy as np
 import argparse
 import wandb
@@ -21,6 +22,12 @@ def parse_ssl_train_args():
         help="Learner to use. Currently support 'GCM' and 'proto'.",
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        default="COCO",
+        help="Dataset to use. Currently CIFAR10 or COCO.",
+    )
+    parser.add_argument(
         "--num_epochs",
         type=int,
         default=5,
@@ -29,20 +36,35 @@ def parse_ssl_train_args():
     parser.add_argument(
         "--num_classes",
         type=int,
-        default=256,
+        default=10,
         help="Number of images to classify from in batch",
     )
     parser.add_argument(
         "--n_support",
         type=int,
-        default=5,
+        default=7,
         help="Number of cropped observations of each image to learn from",
     )
     parser.add_argument(
         "--n_query",
         type=int,
-        default=5,
+        default=3,
         help="Number of query observations of each image",
+    )
+    parser.add_argument(
+        "--random", action="store_true", default=False, help="Make crops random sizes."
+    )
+    parser.add_argument(
+        "--patch_size",
+        type=int,
+        default=16,
+        help="If cropping not random, then size of patch to crop.",
+    )
+    parser.add_argument(
+        "--output_size",
+        type=int,
+        default=32,
+        help="Output image size after cropping and resizing.",
     )
     parser.add_argument(
         "--embedding_dim",
@@ -51,10 +73,11 @@ def parse_ssl_train_args():
         help="Embedding dimension for each observation/image",
     )
     parser.add_argument(
-        "--lr", type=float, default=0.001, help="Learning rate for learner"
+        "--lr", type=float, default=3e-4, help="Learning rate for learner"
     )
 
     args = parser.parse_args()
+    args.output_shape = (3, args.output_size, args.output_size)
     return args
 
 
@@ -64,30 +87,36 @@ if __name__ == "__main__":
     wandb.config.update(args)
     config = wandb.config
 
-    dataloader = dataset_loader.CIFAR10Loader()
-    trainset, testset, classes = dataloader.load_data(data_path="./SSL/data")
+    if config.dataset == "CIFAR10":
+        dataloader = dataset_loader.CIFAR10Loader()
+        trainset, testset, classes = dataloader.load_data(data_path="./SSL/data")
+    elif config.dataset == "COCO":
+        dataloader = dataset_loader.COCOLoader()
+        trainset = dataloader.load_data(data_path="/disk/scratch_fast/datasets/coco/")
 
-    # observation_generator = observation_generators.CropTrajectoryGenerator(
-    #     batch_size=config.num_classes,
-    #     image_shape=dataloader.image_shape,
-    #     trajectory_length=config.n_support + config.n_query,
-    #     random=False,
-    #     patch_size=2,
-    # )
-
-    observation_generator = observation_generators.AugmentationTrajectoryGenerator(
+    observation_generator = observation_generators.CropTrajectoryGenerator(
         batch_size=config.num_classes,
         trajectory_length=config.n_support + config.n_query,
         image_shape=dataloader.image_shape,
+        output_shape=config.output_shape,
+        random=config.random,
+        patch_size=config.patch_size,
     )
 
+    # observation_generator = observation_generators.AugmentationTrajectoryGenerator(
+    #     batch_size=config.num_classes,
+    #     trajectory_length=config.n_support + config.n_query,
+    #     image_shape=dataloader.image_shape,
+    #     output_shape=config.output_shape,
+    # )
+
     trainiterator = dataloader.load_batches(
-        dataset=trainset, batch_size=config.num_classes, shuffle=True
+        dataset=trainset, batch_size=config.num_classes, shuffle=False
     )
 
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
-            input_shape=astuple(dataloader.image_shape),
+            input_shape=config.output_shape,
             hid_dim=config.embedding_dim,
             z_dim=config.embedding_dim,
             use_location=False,
@@ -95,7 +124,7 @@ if __name__ == "__main__":
         )
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
-            input_shape=astuple(dataloader.image_shape),
+            input_shape=config.output_shape,
             hid_dim=config.embedding_dim,
             z_dim=config.embedding_dim,
             use_location=False,
@@ -112,19 +141,19 @@ if __name__ == "__main__":
     )
 
     for epoch in range(config.num_epochs):
-        for episode in range(num_episodes):
+        for episode in range(1):  # num_episodes):
 
             images, labels = next(trainiterator)
             (
-                cropped_images
-                #                crop_coordinates,
+                cropped_images,
+                crop_coordinates,
             ) = observation_generator.generate_trajectories(images)
 
             support_images = cropped_images[:, : config.n_support, :, :, :].reshape(
-                -1, *dataloader.image_shape
+                -1, *config.output_shape  # *dataloader.image_shape
             )
-            query_images = cropped_images[:, : config.n_query, :, :, :].reshape(
-                -1, *dataloader.image_shape
+            query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
+                -1, *config.output_shape  # *dataloader.image_shape
             )
             support_targets = T.flatten(
                 T.tensor(list(range(config.num_classes)), dtype=T.int64)
@@ -163,8 +192,14 @@ if __name__ == "__main__":
             if epoch == 0 and episode == 0:
                 wandb.log(
                     {
-                        "Training/Support Images": wandb.Image(support_images),
-                        "Training/Query Images": wandb.Image(query_images),
+                        "Training/Support Images": wandb.Image(
+                            torchvision.utils.make_grid(support_images[:50], nrow=10),
+                            caption=f"Samples of support images in first task from images: {support_targets}",
+                        ),
+                        "Training/Query Images": wandb.Image(
+                            torchvision.utils.make_grid(query_images[:50], nrow=10),
+                            caption=f"Samples of query images in first task from images: {query_targets}",
+                        ),
                     }
                 )
 
