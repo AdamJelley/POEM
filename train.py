@@ -85,6 +85,10 @@ def train(
             if mode == "train":
                 # Reset optimizer
                 optimizer.zero_grad()
+                print(
+                    support_trajectories["observations"].shape,
+                    query_views["observations"].shape,
+                )
 
                 # Pass trajectories and queries to learner to train representations
                 outputs = learner.compute_loss(
