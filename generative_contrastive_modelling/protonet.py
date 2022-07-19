@@ -102,8 +102,8 @@ class PrototypicalNetwork(nn.Module):
 
         query_embeddings, _ = self.encoder.forward(
             query_views["observations"],
-            query_views["locations"],
-            query_views["directions"],
+            query_views["locations"] if self.use_location else None,
+            query_views["directions"] if self.use_location else None,
         )
 
         support_embeddings = support_embeddings.unsqueeze(0)
