@@ -11,12 +11,17 @@ from minigrid_rl_starter.utils import device
 from generate_trajectories import generate_data
 from process_trajectories import data_to_tensors, sample_views, generate_visualisations
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
+from generative_contrastive_modelling.unsupervised_gcm import (
+    UnsupervisedGenerativeContrastiveModelling,
+)
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
 from generative_contrastive_modelling.recurrent_agent import RecurrentAgent
 from generative_contrastive_modelling.complete_observation_learner import (
     CompleteObservationLearner,
 )
 from train import train
+
+T.autograd.set_detect_anomaly(True)
 
 
 def parse_train_args():
@@ -40,7 +45,7 @@ def parse_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Representation learning method: GCM, proto, recurrent, complete_observations currently supported (REQUIRED)",
+        help="Representation learning method: GCM, unsupervised_GCM, proto, recurrent, complete_observations currently supported (REQUIRED)",
     )
     parser.add_argument(
         "--num_epochs", type=int, default=1, help="Number of training episodes"
@@ -225,6 +230,15 @@ if __name__ == "__main__":
     # Load learner and optimizer
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
+            input_shape=config.input_shape,
+            hid_dim=config.hidden_dim,
+            z_dim=config.embedding_dim,
+            use_location=config.use_location,
+            use_direction=config.use_direction,
+        )
+
+    elif config.learner == "unsupervised_GCM":
+        learner = UnsupervisedGenerativeContrastiveModelling(
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
