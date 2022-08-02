@@ -138,6 +138,24 @@ def sample_views(trajectories, num_queries):
     return views, remaining_trajectories
 
 
+def get_environment_queries(trajectories, num_queries):
+
+    indices = T.randperm(trajectories["environment_targets"].shape[0])[:num_queries]
+    environments = trajectories["environments"][indices]
+    environment_targets = trajectories["environment_targets"][indices]
+    locations = T.ones_like(trajectories["locations"][indices]) * -1
+    directions = T.ones_like(trajectories["directions"][indices]) * -1
+
+    views = {
+        "observations": environments,
+        "targets": environment_targets,
+        "locations": locations,
+        "directions": directions,
+    }
+
+    return views
+
+
 def generate_visualisations(train_dataset, query_views):
     support_environments = wandb.Image(
         torchvision.utils.make_grid(

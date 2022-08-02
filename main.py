@@ -69,6 +69,12 @@ def parse_train_args():
         help="Number of query observations to try to match",
     )
     parser.add_argument(
+        "--environment_queries",
+        action="store_true",
+        default=False,
+        help="Use full environments as queries.",
+    )
+    parser.add_argument(
         "--use_location",
         action="store_true",
         default=False,
@@ -158,6 +164,10 @@ def parse_train_args():
     else:
         # args.input_shape = (3, 352, 352)
         args.input_shape = (3, 56, 56)
+    if args.environment_queries:
+        assert (
+            args.num_queries <= args.num_environments
+        ), "Cannot have more queries than environments when using environment queries."
     if args.resume:
         args.run_id = args.run_path.split("/")[2]
         assert args.run_id is not None, "Must pass --run_path to resume run."
@@ -300,6 +310,7 @@ if __name__ == "__main__":
         exploratory_agent=exploratory_agent,
         learner=learner,
         optimizer=optimizer,
+        environment_queries=config.environment_queries,
         render_trained=config.render_trained,
         render_exploratory=config.render_exploratory,
         log_samples=config.log_samples,
@@ -324,6 +335,7 @@ if __name__ == "__main__":
         exploratory_agent=exploratory_agent,
         learner=learner,
         optimizer=optimizer,
+        environment_queries=config.environment_queries,
         render_trained=config.render_trained,
         render_exploratory=config.render_exploratory,
         log_samples=False,

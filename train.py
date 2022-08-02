@@ -11,6 +11,7 @@ from process_trajectories import (
     orientate_observations,
     remove_seen_queries,
     sample_views,
+    get_environment_queries,
     generate_visualisations,
 )
 
@@ -28,6 +29,7 @@ def train(
     exploratory_agent,
     learner,
     optimizer,
+    environment_queries,
     render_trained=False,
     render_exploratory=False,
     log_samples=False,
@@ -71,6 +73,9 @@ def train(
                 query_trajectories_filtered = data_to_tensors(query_dataset_filtered)
 
                 query_views, _ = sample_views(query_trajectories_filtered, num_queries)
+
+            elif environment_queries:
+                query_views = get_environment_queries(support_trajectories, num_queries)
 
             else:
                 query_views, remaining_support_trajectories = sample_views(
