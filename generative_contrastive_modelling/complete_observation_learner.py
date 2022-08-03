@@ -17,16 +17,18 @@ class CompleteObservationLearner(nn.Module):
         orient_queries=True,
         use_location=False,
         use_direction=False,
+        use_coordinates=False,
     ):
         super().__init__()
         self.orient_queries = orient_queries
         self.use_location = use_location
         self.use_direction = use_direction
+        self.use_coordinates = use_coordinates
         self.environment_encoder = ProtoEncoder(
-            input_shape, hid_dim, z_dim, False, False
+            input_shape, hid_dim, z_dim, False, False, False
         )
         self.query_encoder = ProtoEncoder(
-            input_shape, hid_dim, z_dim, use_location, use_direction
+            input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
         )
         self.projection_network = ProjectionNetwork(z_dim, z_dim, z_dim)
 
@@ -45,12 +47,13 @@ class CompleteObservationLearner(nn.Module):
             query_views = orientate_observations(query_views)
 
         environment_embeddings, _ = self.environment_encoder.forward(
-            support_trajectories["environments"], None, None
+            support_trajectories["environments"], None, None, None
         )
         query_embeddings, _ = self.query_encoder.forward(
             query_views["observations"],
-            query_views["locations"],
-            query_views["directions"],
+            query_views["locations"] if self.use_locations else None,
+            query_views["directions"] if self.use_directions else None,
+            query_views["coordinates"] if self.use_coordinates else None,
         )
 
         environment_embeddings = (

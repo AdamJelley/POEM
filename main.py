@@ -245,6 +245,7 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=config.use_location,
             use_direction=config.use_direction,
+            use_coordinates=False,
         )
 
     elif config.learner == "unsupervised_GCM":
@@ -254,6 +255,7 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=config.use_location,
             use_direction=config.use_direction,
+            use_coordinates=False,
         )
 
     elif config.learner == "proto":
@@ -263,6 +265,7 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=config.use_location,
             use_direction=config.use_direction,
+            use_coordinates=False,
             project_embedding=config.project_embedding,
         )
 
@@ -273,6 +276,7 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=config.use_location,
             use_direction=config.use_direction,
+            use_coordinates=False,
             project_embedding=config.project_embedding,
         )
     elif config.learner == "complete_observations":
@@ -283,6 +287,7 @@ if __name__ == "__main__":
             orient_queries=True,
             use_location=config.use_location,
             use_direction=config.use_direction,
+            use_coordinates=False,
         )
 
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)

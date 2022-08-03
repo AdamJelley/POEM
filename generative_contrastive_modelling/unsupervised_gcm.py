@@ -8,23 +8,15 @@ from generative_contrastive_modelling.gcm_encoder import GCMEncoder
 
 class UnsupervisedGenerativeContrastiveModelling(nn.Module):
     def __init__(
-        self,
-        input_shape,
-        hid_dim,
-        z_dim,
-        use_location,
-        use_direction,
+        self, input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
     ):
         super().__init__()
         self.z_dim = z_dim
         self.use_location = use_location
         self.use_direction = use_direction
+        self.use_coordinates = use_coordinates
         self.encoder = GCMEncoder(
-            input_shape,
-            hid_dim,
-            z_dim,
-            use_location,
-            use_direction,
+            input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
         )
 
     def get_num_samples(self, targets, dtype=None):
@@ -341,6 +333,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
             support_trajectories["observations"],
             support_trajectories["locations"] if self.use_location else None,
             support_trajectories["directions"] if self.use_direction else None,
+            support_trajectories["coordinates"] if self.use_coordinates else None,
         )
 
         support_means = support_means.unsqueeze(0)
@@ -359,12 +352,14 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
             support_trajectories["observations"],
             support_trajectories["locations"] if self.use_location else None,
             support_trajectories["directions"] if self.use_direction else None,
+            support_trajectories["coordinates"] if self.use_coordinates else None,
         )
 
         query_means, query_precisions = self.encoder.forward(
             query_views["observations"],
             query_views["locations"] if self.use_location else None,
             query_views["directions"] if self.use_direction else None,
+            query_views["coordinates"] if self.use_coordinates else None,
         )
 
         support_means = support_means.unsqueeze(0)
@@ -377,7 +372,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         query_targets = query_views["targets"].unsqueeze(0)
 
         posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
-            support_means, support_precisions, support_targets, prior_precision=1e-10
+            support_means, support_precisions, support_targets, prior_precision=0.1
         )
 
         log_Znv = self.calculate_Znv(
@@ -386,12 +381,13 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
             log_Z,
             query_means,
             query_precisions,
-            prior_precision=1e-10,
+            prior_precision=0.1,
         )
 
         log_likelihood = (
             ((num_samples + 1) * log_Z)
             - (num_samples * torch.logsumexp(log_Znv, dim=-1))
+            + (num_samples * math.log(log_Znv.shape[-1]))
         ).sum()
 
         _, predictions = (log_Znv - log_Z.unsqueeze(-1)).max(1)

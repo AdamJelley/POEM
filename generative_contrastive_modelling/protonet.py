@@ -15,14 +15,16 @@ class PrototypicalNetwork(nn.Module):
         z_dim,
         use_location=False,
         use_direction=False,
+        use_coordinates=False,
         project_embedding=False,
     ):
         super().__init__()
         self.use_location = use_location
         self.use_direction = use_direction
+        self.use_coordinates = use_coordinates
         self.project_embedding = project_embedding
         self.encoder = ProtoEncoder(
-            input_shape, hid_dim, z_dim, use_location, use_direction
+            input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
         )
         if self.project_embedding:
             self.projection_network = ProjectionNetwork(z_dim, z_dim, z_dim)
@@ -82,6 +84,7 @@ class PrototypicalNetwork(nn.Module):
             support_trajectories["observations"],
             support_trajectories["locations"] if self.use_location else None,
             support_trajectories["directions"] if self.use_direction else None,
+            support_trajectories["coordinates"] if self.use_coordinates else None,
         )
 
         support_embeddings = support_embeddings.unsqueeze(0)
@@ -98,12 +101,14 @@ class PrototypicalNetwork(nn.Module):
             support_trajectories["observations"],
             support_trajectories["locations"] if self.use_location else None,
             support_trajectories["directions"] if self.use_direction else None,
+            support_trajectories["coordinates"] if self.use_coordinates else None,
         )
 
         query_embeddings, _ = self.encoder.forward(
             query_views["observations"],
             query_views["locations"] if self.use_location else None,
             query_views["directions"] if self.use_location else None,
+            query_views["coordinates"] if self.use_coordinates else None,
         )
 
         support_embeddings = support_embeddings.unsqueeze(0)
