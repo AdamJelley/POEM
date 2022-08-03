@@ -14,8 +14,7 @@ class CropTrajectoryGenerator:
         trajectory_length,
         image_shape,
         output_shape,
-        random=True,
-        patch_size=10,
+        patch_size,
     ):
         self.batch_size = batch_size
         self.trajectory_length = trajectory_length
@@ -89,7 +88,7 @@ class CropTrajectoryGenerator:
         """
 
         repeated_images = images.unsqueeze(1).repeat(1, self.trajectory_length, 1, 1, 1)
-        if self.random:
+        if self.patch_size==-1:
             ((xmin, ymin), (xmax, ymax)) = self.generate_random_crop_coordinates()
         else:
             ((xmin, ymin), (xmax, ymax)) = self.generate_patch_crop_coordinates()

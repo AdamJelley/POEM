@@ -51,12 +51,9 @@ def parse_ssl_train_args():
         help="Number of query observations of each image",
     )
     parser.add_argument(
-        "--random", action="store_true", default=False, help="Make crops random sizes."
-    )
-    parser.add_argument(
         "--patch_size",
         type=int,
-        default=16,
+        default=-1,
         help="If cropping not random, then size of patch to crop.",
     )
     parser.add_argument(
@@ -104,7 +101,6 @@ if __name__ == "__main__":
         trajectory_length=config.n_support + config.n_query,
         image_shape=dataloader.image_shape,
         output_shape=config.output_shape,
-        random=config.random,
         patch_size=config.patch_size,
     )
 
@@ -157,10 +153,10 @@ if __name__ == "__main__":
             ) = observation_generator.generate_trajectories(images)
 
             support_images = cropped_images[:, : config.n_support, :, :, :].reshape(
-                -1, *config.output_shape  # *dataloader.image_shape
+                -1, *config.output_shape
             )
             query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
-                -1, *config.output_shape  # *dataloader.image_shape
+                -1, *config.output_shape
             )
 
             support_coordinates = crop_coordinates[:, : config.n_support, :].reshape(
