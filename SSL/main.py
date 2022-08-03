@@ -1,4 +1,3 @@
-from requests import patch
 import torch as T
 import torch.optim as optim
 import torchvision
@@ -42,13 +41,13 @@ def parse_ssl_train_args():
     parser.add_argument(
         "--n_support",
         type=int,
-        default=7,
+        default=5,
         help="Number of cropped observations of each image to learn from",
     )
     parser.add_argument(
         "--n_query",
         type=int,
-        default=3,
+        default=10,
         help="Number of query observations of each image",
     )
     parser.add_argument(
@@ -73,7 +72,7 @@ def parse_ssl_train_args():
         help="Embedding dimension for each observation/image",
     )
     parser.add_argument(
-        "--lr", type=float, default=3e-4, help="Learning rate for learner"
+        "--lr", type=float, default=0.001, help="Learning rate for learner"
     )
 
     args = parser.parse_args()
@@ -141,7 +140,7 @@ if __name__ == "__main__":
     )
 
     for epoch in range(config.num_epochs):
-        for episode in range(1):  # num_episodes):
+        for episode in range(num_episodes):
 
             images, labels = next(trainiterator)
             (
@@ -175,6 +174,8 @@ if __name__ == "__main__":
                 "targets": support_targets,
             }
             query_views = {"observations": query_images, "targets": query_targets}
+
+            optimizer.zero_grad()
 
             outputs = learner.compute_loss(
                 support_trajectories=support_trajectories, query_views=query_views
