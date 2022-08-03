@@ -60,6 +60,12 @@ def parse_ssl_train_args():
         help="If cropping not random, then size of patch to crop.",
     )
     parser.add_argument(
+        "--use_coordinates",
+        action="store_true",
+        default=False,
+        help="Provide coordinates to learn representation.",
+    )
+    parser.add_argument(
         "--output_size",
         type=int,
         default=32,
@@ -110,7 +116,7 @@ if __name__ == "__main__":
     # )
 
     trainiterator = dataloader.load_batches(
-        dataset=trainset, batch_size=config.num_classes, shuffle=False
+        dataset=trainset, batch_size=config.num_classes, shuffle=True
     )
 
     if config.learner == "GCM":
@@ -120,6 +126,7 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=False,
             use_direction=False,
+            use_coordinates=config.use_coordinates,
         )
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
@@ -128,6 +135,7 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=False,
             use_direction=False,
+            use_coordinates=config.use_coordinates,
             project_embedding=False,
         )
 
@@ -154,6 +162,14 @@ if __name__ == "__main__":
             query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
                 -1, *config.output_shape  # *dataloader.image_shape
             )
+
+            support_coordinates = crop_coordinates[:, : config.n_support, :].reshape(
+                -1, 4
+            )
+            query_coordinates = crop_coordinates[:, config.n_support :, :].reshape(
+                -1, 4
+            )
+
             support_targets = T.flatten(
                 T.tensor(list(range(config.num_classes)), dtype=T.int64)
                 .unsqueeze(1)
@@ -172,8 +188,13 @@ if __name__ == "__main__":
             support_trajectories = {
                 "observations": support_images,
                 "targets": support_targets,
+                "coordinates": support_coordinates,
             }
-            query_views = {"observations": query_images, "targets": query_targets}
+            query_views = {
+                "observations": query_images,
+                "targets": query_targets,
+                "coordinates": query_coordinates,
+            }
 
             optimizer.zero_grad()
 
