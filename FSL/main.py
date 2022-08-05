@@ -1,7 +1,8 @@
-from ctypes import ArgumentError
+import os
 import torch as T
 import torch.optim as optim
 import argparse
+import GPUtil
 import wandb
 
 from torchmeta.datasets.helpers import omniglot, miniimagenet
@@ -64,13 +65,21 @@ def parse_fsl_args():
 
     args = parser.parse_args()
     if args.use_coordinates and not (args.cropping or args.masking):
-        raise ArgumentError("Cannot use coordinates without cropping or masking.")
+        parser.error("Cannot use coordinates without cropping or masking.")
 
     return args
 
 
 if __name__ == "__main__":
     args = parse_fsl_args()
+
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    deviceID = GPUtil.getFirstAvailable(
+        order="load", maxLoad=0.4, maxMemory=0.4, attempts=1, interval=900, verbose=True
+    )[0]
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(deviceID)
+    device = T.device("cuda" if T.cuda.is_available() else "cpu")
+
     wandb.init(project="gen-con-fsl")
     wandb.config.update(args)
     config = wandb.config
@@ -108,7 +117,7 @@ if __name__ == "__main__":
             use_location=False,
             use_direction=False,
             use_coordinates=config.use_coordinates,
-        )
+        ).to(device)
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
             input_shape=config.output_shape,
@@ -118,7 +127,7 @@ if __name__ == "__main__":
             use_direction=False,
             use_coordinates=config.use_coordinates,
             project_embedding=False,
-        )
+        ).to(device)
 
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)
 
@@ -126,6 +135,7 @@ if __name__ == "__main__":
         max_epochs=config.num_epochs,
         epoch_size=config.epoch_size,
         dataloader=dataloader,
+        device=device,
         learner=learner,
         optimizer=optimizer,
         n_way=config.n_way,
@@ -139,5 +149,20 @@ if __name__ == "__main__":
         output_shape=config.output_shape,
         use_coordinates=config.use_coordinates,
     )
+
+    checkpoint_path = os.path.join(wandb.run.dir, "checkpoint.pt")
+    print(f"Saving checkpoint to {checkpoint_path}...")
+    T.save(
+        {
+            "epoch": config.num_epochs,
+            "learner_state_dict": learner.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": outputs["loss"],
+            "accuracy": outputs["accuracy"],
+        },
+        checkpoint_path,
+    )
+    wandb.save(checkpoint_path, base_path=checkpoint_path)
+
 
     wandb.finish()

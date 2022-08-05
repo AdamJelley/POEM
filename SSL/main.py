@@ -1,8 +1,10 @@
+import os
 import torch as T
 import torch.optim as optim
 import torchvision
 import numpy as np
 import argparse
+import GPUtil
 import wandb
 from dataclasses import astuple
 
@@ -85,6 +87,14 @@ def parse_ssl_train_args():
 
 if __name__ == "__main__":
     args = parse_ssl_train_args()
+
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    deviceID = GPUtil.getFirstAvailable(
+        order="load", maxLoad=0.4, maxMemory=0.4, attempts=1, interval=900, verbose=True
+    )[0]
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(deviceID)
+    device = T.device("cuda" if T.cuda.is_available() else "cpu")
+
     wandb.init(project="gen-con-ssl")
     wandb.config.update(args)
     config = wandb.config
@@ -111,10 +121,6 @@ if __name__ == "__main__":
     #     output_shape=config.output_shape,
     # )
 
-    trainiterator = dataloader.load_batches(
-        dataset=trainset, batch_size=config.num_classes, shuffle=True
-    )
-
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
             input_shape=config.output_shape,
@@ -123,7 +129,7 @@ if __name__ == "__main__":
             use_location=False,
             use_direction=False,
             use_coordinates=config.use_coordinates,
-        )
+        ).to(device)
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
             input_shape=config.output_shape,
@@ -133,20 +139,24 @@ if __name__ == "__main__":
             use_direction=False,
             use_coordinates=config.use_coordinates,
             project_embedding=False,
-        )
+        ).to(device)
 
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)
 
-    num_episodes = (
-        len(trainiterator)
-        if len(trainset) % config.num_classes == 0
-        else len(trainiterator) - 1
-    )
-
     for epoch in range(config.num_epochs):
+        trainiterator = dataloader.load_batches(
+            dataset=trainset, batch_size=config.num_classes, shuffle=True
+        )
+        num_episodes = (
+            len(trainiterator)
+            if len(trainset) % config.num_classes == 0
+            else len(trainiterator) - 1
+        )
         for episode in range(num_episodes):
 
             images, labels = next(trainiterator)
+            images = images.to(device)
+            labels = labels.to(device)
             (
                 cropped_images,
                 crop_coordinates,
@@ -154,28 +164,28 @@ if __name__ == "__main__":
 
             support_images = cropped_images[:, : config.n_support, :, :, :].reshape(
                 -1, *config.output_shape
-            )
+            ).to(device)
             query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
                 -1, *config.output_shape
-            )
+            ).to(device)
 
             support_coordinates = crop_coordinates[:, : config.n_support, :].reshape(
                 -1, 4
-            )
+            ).to(device)
             query_coordinates = crop_coordinates[:, config.n_support :, :].reshape(
                 -1, 4
-            )
+            ).to(device)
 
             support_targets = T.flatten(
                 T.tensor(list(range(config.num_classes)), dtype=T.int64)
                 .unsqueeze(1)
                 .repeat(1, config.n_support)
-            )
+            ).to(device)
             query_targets = T.flatten(
                 T.tensor(list(range(config.num_classes)), dtype=T.int64)
                 .unsqueeze(1)
                 .repeat(1, config.n_query)
-            )
+            ).to(device)
 
             # dataloader.display_image(images[0, :, :, :])
             # print(support_targets[:20])
@@ -225,8 +235,8 @@ if __name__ == "__main__":
                 f"Iteration: {episode}, \t"
                 f"Loss: {outputs['loss']:.2f}, \t"
                 f"Accuracy: {outputs['accuracy']:.2f}, \t"
-                f"Predictions (5): {np.array(outputs['predictions'][0,:5])}, \t"
-                f"Targets (5): {np.array(query_views['targets'][:5])}, \t"
+                f"Predictions (5): {outputs['predictions'][0,:5].cpu().numpy()}, \t"
+                f"Targets (5): {query_views['targets'][:5].cpu().numpy()}, \t"
                 # f"Duration: {iteration_time:.1f}s"
             )
 

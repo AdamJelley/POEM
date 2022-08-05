@@ -9,6 +9,7 @@ def train(
     max_epochs,
     epoch_size,
     dataloader,
+    device,
     learner,
     optimizer,
     n_way,
@@ -26,6 +27,9 @@ def train(
         for episode in range(epoch_size):
 
             train_inputs, train_targets = next(dataloader)["train"]
+            train_inputs = train_inputs.to(device)
+            train_targets = train_targets.to(device)
+
             batch_size = train_inputs.shape[0]
             train_inputs = train_inputs.reshape(
                 batch_size * n_way, n_support + n_query, *train_inputs.shape[2:]
@@ -50,8 +54,12 @@ def train(
             )
 
             if use_coordinates:
-                support_coordinates = coordinates[:, :n_support, :].reshape(-1, 4)
-                query_coordinates = coordinates[:, n_support:, :].reshape(-1, 4)
+                support_coordinates = coordinates[:, :n_support, :].reshape(-1, 4).to(device)
+                support_coordinates[:,2] = support_coordinates[:,2]-support_coordinates[:,0]
+                support_coordinates[:,3] = support_coordinates[:,3]-support_coordinates[:,1]
+                query_coordinates = coordinates[:, n_support:, :].reshape(-1, 4).to(device)
+                query_coordinates[:,2] = query_coordinates[:,2]-query_coordinates[:,0]
+                query_coordinates[:,3] = query_coordinates[:,3]-query_coordinates[:,1]
 
             support_targets = train_targets[:, :n_support].reshape(-1)
             query_targets = train_targets[:, n_support:].reshape(-1)
@@ -86,8 +94,8 @@ def train(
                 wandb.log(
                     {
                         "Training/Support Images": wandb.Image(
-                            torchvision.utils.make_grid(support_images[:50], nrow=10),
-                            caption=f"Samples of support images in first task from images: {support_targets}",
+                            torchvision.utils.make_grid(support_images[:5], nrow=5),
+                            caption=f"Samples of support images in first task from images: {support_coordinates[:5]}",
                         ),
                         "Training/Query Images": wandb.Image(
                             torchvision.utils.make_grid(query_images[:50], nrow=10),
@@ -100,8 +108,8 @@ def train(
                 f"Iteration: {episode}, \t"
                 f"Loss: {outputs['loss']:.2f}, \t"
                 f"Accuracy: {outputs['accuracy']:.2f}, \t"
-                f"Predictions (5): {np.array(outputs['predictions'][0,:5])}, \t"
-                f"Targets (5): {np.array(query_views['targets'][:5])}, \t"
+                f"Predictions (5): {(outputs['predictions'][0,:5]).cpu().numpy()}, \t"
+                f"Targets (5): {(query_views['targets'][:5]).cpu().numpy()}, \t"
                 # f"Duration: {iteration_time:.1f}s"
             )
 
