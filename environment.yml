@@ -1,0 +1,15 @@
+name: gen-con-rl
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - numpy
+  - gym
+  - matplotlib
+  - tensorboard
+  - black
+  - pytorch
+  - torchvision
+  - qt
+  - pycocotools
+prefix: /Users/ajelley/miniforge3/envs/gen-con-rl
