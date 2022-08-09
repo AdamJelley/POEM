@@ -9,6 +9,7 @@ from torchmeta.datasets.helpers import omniglot, miniimagenet
 from torchmeta.utils.data import BatchMetaDataLoader
 
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
+from generative_contrastive_modelling.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
 from FSL.train import train
 
@@ -49,7 +50,7 @@ def parse_fsl_args():
         "--n_support", type=int, default=5, help="Number of support examples."
     )
     parser.add_argument(
-        "--n_query", type=int, default=5, help="Number of query examples."
+        "--n_query", type=int, default=40, help="Number of query examples."
     )
     parser.add_argument(
         "--embedding_dim", type=int, default=64, help="Representation size."
@@ -85,7 +86,7 @@ if __name__ == "__main__":
     config = wandb.config
 
     if config.dataset == "omniglot":
-        config.output_shape = (1, 28, 28)
+        config.output_shape = (1, 56, 56)
         dataset = omniglot(
             "FSL/data/omniglot_data",
             ways=config.n_way,
@@ -114,6 +115,16 @@ if __name__ == "__main__":
             input_shape=config.output_shape,
             hid_dim=config.embedding_dim,
             z_dim=config.embedding_dim,
+            use_location=False,
+            use_direction=False,
+            use_coordinates=config.use_coordinates,
+        ).to(device)
+    elif config.learner == "unsupervised_GCM":
+        learner = UnsupervisedGenerativeContrastiveModelling(
+            input_shape=config.output_shape,
+            hid_dim=config.embedding_dim,
+            z_dim=config.embedding_dim,
+            prior_precision=0.01,
             use_location=False,
             use_direction=False,
             use_coordinates=config.use_coordinates,

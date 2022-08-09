@@ -34,6 +34,11 @@ def mask_input(input, patch_size=-1, invert=False, no_noise=False):
     )
     return masked_input, coordinates
 
+def rescale_input(input, output_shape):
+    rescaled_input = input.reshape(-1,*input.shape[2:])
+    rescaled_input = torchvision.transforms.functional.resize(rescaled_input, size = (output_shape[-2], output_shape[-1]))
+    rescaled_input = rescaled_input.reshape(*input.shape[:2], *output_shape)
+    return rescaled_input
 
 def apply_crop(data, coordinates):
     ((x1, y1), (x2, y2)) = coordinates

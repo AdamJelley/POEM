@@ -2,7 +2,7 @@ import numpy as np
 import torchvision
 import wandb
 
-from FSL.utils import crop_input, mask_input
+from FSL.utils import crop_input, mask_input, rescale_input
 
 
 def train(
@@ -44,6 +44,7 @@ def train(
                 train_inputs, coordinates = mask_input(
                     train_inputs, patch_size, invert, no_noise
                 )
+            train_inputs = rescale_input(train_inputs, output_shape)
 
             support_images = train_inputs[:, :n_support, :, :, :].reshape(
                 -1, *output_shape
@@ -94,12 +95,12 @@ def train(
                 wandb.log(
                     {
                         "Training/Support Images": wandb.Image(
-                            torchvision.utils.make_grid(support_images[:5], nrow=5),
-                            caption=f"Samples of support images in first task from images: {support_coordinates[:5]}",
+                            torchvision.utils.make_grid(support_images[:15], nrow=5),
+                            caption=f"Samples of support images in first task from images: {support_targets[:15]}",
                         ),
                         "Training/Query Images": wandb.Image(
-                            torchvision.utils.make_grid(query_images[:50], nrow=10),
-                            caption=f"Samples of query images in first task from images: {query_targets}",
+                            torchvision.utils.make_grid(query_images[:15], nrow=10),
+                            caption=f"Samples of query images in first task from images: {query_targets[:15]}",
                         ),
                     }
                 )
