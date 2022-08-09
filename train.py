@@ -27,6 +27,7 @@ def train(
     env_seed,
     trained_agent,
     exploratory_agent,
+    device,
     learner,
     optimizer,
     environment_queries,
@@ -55,7 +56,7 @@ def train(
                 render=render_trained,
             )
 
-            support_trajectories = data_to_tensors(train_dataset)
+            support_trajectories = data_to_tensors(train_dataset, device)
 
             if exploratory_agent is not None:
                 # Run the exploratory agent to generate query data
@@ -70,7 +71,7 @@ def train(
                     query_dataset, train_dataset
                 )
 
-                query_trajectories_filtered = data_to_tensors(query_dataset_filtered)
+                query_trajectories_filtered = data_to_tensors(query_dataset_filtered, device)
 
                 query_views, _ = sample_views(query_trajectories_filtered, num_queries)
 
@@ -103,6 +104,10 @@ def train(
                     {
                         "Training/Loss": outputs["loss"],
                         "Training/Accuracy": outputs["accuracy"],
+                        #  "Training/Means": outputs["support_means"],
+                        # "Training/Precisions": outputs["support_precisions"],
+                        # "Training/Loss numerator": outputs["loss_numerator"],
+                        # "Training/Loss denominator": outputs["loss_denominator"],
                     }
                 )
 
@@ -147,8 +152,8 @@ def train(
                 f"Iteration: {task}, \t"
                 f"Loss: {outputs['loss']:.2f}, \t"
                 f"Accuracy: {outputs['accuracy']:.2f}, \t"
-                f"Predictions (5): {np.array(outputs['predictions'][0,:5])}, \t"
-                f"Targets (5): {np.array(query_views['targets'][:5])}, \t"
+                f"Predictions (5): {outputs['predictions'][0,:5].cpu().numpy()}, \t"
+                f"Targets (5): {query_views['targets'][:5].cpu().numpy()}, \t"
                 f"Duration: {iteration_time:.1f}s"
             )
 

@@ -6,7 +6,7 @@ import copy
 import wandb
 
 
-def data_to_tensors(dataset):
+def data_to_tensors(dataset, device):
 
     observations = T.Tensor(
         np.array(
@@ -16,10 +16,10 @@ def data_to_tensors(dataset):
                 for step in dataset[episode]
             ]
         )
-    )
+    ).to(device)
     targets = T.tensor(
         np.array([episode for episode in dataset for step in dataset[episode]])
-    )
+    ).to(device)
     locations = T.Tensor(
         np.array(
             [
@@ -28,7 +28,7 @@ def data_to_tensors(dataset):
                 for step in dataset[episode]
             ]
         )
-    )
+    ).to(device)
     directions = F.one_hot(
         T.Tensor(
             np.array(
@@ -40,14 +40,19 @@ def data_to_tensors(dataset):
             )
         ).to(T.int64),
         4,
-    )
+    ).to(device)
     environments = F.interpolate(
         T.Tensor(
-            np.array([dataset[episode][0]["obs"]["pixels"] for episode in dataset])
+            np.array(
+                [
+                    dataset[episode][list(dataset[episode].keys())[0]]["obs"]["pixels"]
+                    for episode in dataset
+                ]
+            )
         ),
-        size=dataset[0][0]["obs"]["partial_pixels"].shape[1:],
-    )
-    environment_targets = T.tensor(np.array([episode for episode in dataset]))
+        size=dataset[0][list(dataset[0].keys())[0]]["obs"]["partial_pixels"].shape[1:],
+    ).to(device)
+    environment_targets = T.tensor(np.array([episode for episode in dataset])).to(device)
 
     trajectories = {
         "observations": observations,

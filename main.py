@@ -1,15 +1,11 @@
-import sys
 import numpy as np
 import torch as T
 import torch.optim as optim
-import torchvision
 import argparse
 import wandb
 
 from minigrid_rl_starter import utils
 from minigrid_rl_starter.utils import device
-from generate_trajectories import generate_data
-from process_trajectories import data_to_tensors, sample_views, generate_visualisations
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
 from generative_contrastive_modelling.unsupervised_gcm import (
     UnsupervisedGenerativeContrastiveModelling,
@@ -21,7 +17,7 @@ from generative_contrastive_modelling.complete_observation_learner import (
 )
 from train import train
 
-T.autograd.set_detect_anomaly(True)
+#T.autograd.set_detect_anomaly(True)
 
 
 def parse_train_args():
@@ -189,8 +185,6 @@ if __name__ == "__main__":
     # Set seed for all randomness sources
     utils.seed(config.seed)
 
-    # Set device
-
     print(f"Device: {device}\n")
 
     # Load environments
@@ -246,17 +240,18 @@ if __name__ == "__main__":
             use_location=config.use_location,
             use_direction=config.use_direction,
             use_coordinates=False,
-        )
+        ).to(device)
 
     elif config.learner == "unsupervised_GCM":
         learner = UnsupervisedGenerativeContrastiveModelling(
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
+            prior_precision=0.01,
             use_location=config.use_location,
             use_direction=config.use_direction,
             use_coordinates=False,
-        )
+        ).to(device)
 
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
@@ -267,7 +262,7 @@ if __name__ == "__main__":
             use_direction=config.use_direction,
             use_coordinates=False,
             project_embedding=config.project_embedding,
-        )
+        ).to(device)
 
     elif config.learner == "recurrent":
         learner = RecurrentAgent(
@@ -278,7 +273,7 @@ if __name__ == "__main__":
             use_direction=config.use_direction,
             use_coordinates=False,
             project_embedding=config.project_embedding,
-        )
+        ).to(device)
     elif config.learner == "complete_observations":
         learner = CompleteObservationLearner(
             input_shape=config.input_shape,
@@ -288,7 +283,7 @@ if __name__ == "__main__":
             use_location=config.use_location,
             use_direction=config.use_direction,
             use_coordinates=False,
-        )
+        ).to(device)
 
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)
     # wandb.watch(learner, log="all", log_freq=1, log_graph=True)
@@ -313,6 +308,7 @@ if __name__ == "__main__":
         env_seed=config.seed,
         trained_agent=trained_agent,
         exploratory_agent=exploratory_agent,
+        device=device,
         learner=learner,
         optimizer=optimizer,
         environment_queries=config.environment_queries,
