@@ -10,8 +10,10 @@ from dataclasses import astuple
 
 from SSL.process_data import dataset_loader, observation_generators
 from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
+from generative_contrastive_modelling.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
 
+T.autograd.set_detect_anomaly(True)
 
 def parse_ssl_train_args():
     parser = argparse.ArgumentParser(
@@ -130,6 +132,16 @@ if __name__ == "__main__":
             use_direction=False,
             use_coordinates=config.use_coordinates,
         ).to(device)
+    elif config.learner == "unsupervised_GCM":
+        learner = UnsupervisedGenerativeContrastiveModelling(
+            input_shape=config.output_shape,
+            hid_dim=config.embedding_dim,
+            z_dim=config.embedding_dim,
+            prior_precision=0.1,
+            use_location=False,
+            use_direction=False,
+            use_coordinates=config.use_coordinates,
+        ).to(device)
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
             input_shape=config.output_shape,
@@ -156,7 +168,7 @@ if __name__ == "__main__":
 
             images, labels = next(trainiterator)
             images = images.to(device)
-            labels = labels.to(device)
+
             (
                 cropped_images,
                 crop_coordinates,
