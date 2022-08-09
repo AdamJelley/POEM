@@ -8,10 +8,11 @@ from generative_contrastive_modelling.gcm_encoder import GCMEncoder
 
 class UnsupervisedGenerativeContrastiveModelling(nn.Module):
     def __init__(
-        self, input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
+        self, input_shape, hid_dim, z_dim, prior_precision, use_location, use_direction, use_coordinates
     ):
         super().__init__()
         self.z_dim = z_dim
+        self.prior_precision = prior_precision
         self.use_location = use_location
         self.use_direction = use_direction
         self.use_coordinates = use_coordinates
@@ -184,13 +185,13 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         return product_mean, product_precision, log_product_normalisation
 
     def calculate_Gaussian_prior_product(
-        self, prior_shape, prior_powers, prior_precision
+        self, prior_shape, prior_powers
     ):
         """Calculate product of prior_power Gaussian priors with mean 0 and precision prior_precision.
 
         Args:
+            prior_shape (tuple): Shape of Gaussian prior.
             prior_powers (tensor): Powers to raise denominator unit Gaussian (usually V or V-1 for V = num_samples per class)
-            prior_precision (int, optional): Gaussian prior precision. Defaults to 1.
 
         Returns:
             prior_product_mean,
@@ -199,15 +200,15 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         """
 
         prior_product_mean = 0
-        prior_product_precision = prior_powers * prior_precision
+        prior_product_precision = prior_powers * self.prior_precision
         log_prior_product_normalisation = 0.5 * (1 - prior_powers) * math.log(
             2 * math.pi
         ) + 0.5 * (
-            prior_powers * math.log(prior_precision)
+            prior_powers * math.log(self.prior_precision)
             - torch.log(prior_product_precision)
         )
 
-        prior_product_mean = torch.zeros(prior_shape)
+        prior_product_mean = torch.zeros(prior_shape).to(prior_powers.device)
         prior_product_precision = prior_product_precision.unsqueeze(-1).expand(
             prior_shape
         )
@@ -249,7 +250,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         return quotient_means, quotient_precisions, log_quotient_normalisation
 
     def calculate_posterior_q(
-        self, support_means, support_precisions, support_targets, prior_precision
+        self, support_means, support_precisions, support_targets
     ):
 
         num_samples = self.get_num_samples(support_targets)
@@ -268,7 +269,6 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         ) = self.calculate_Gaussian_prior_product(
             prior_shape=support_product_means.shape,
             prior_powers=num_samples - 1,
-            prior_precision=prior_precision,
         )
         (
             posterior_means,
@@ -295,7 +295,6 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         log_Z,
         query_means,
         query_precisions,
-        prior_precision,
     ):
         (
             additional_prior_posterior_means,
@@ -305,7 +304,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
             posterior_means,
             posterior_precisions,
             prior_product_mean=torch.zeros_like(posterior_means),
-            prior_product_precision=prior_precision
+            prior_product_precision=self.prior_precision
             * torch.ones_like(posterior_precisions),
         )
         (
@@ -327,6 +326,59 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
 
         return log_Znv
 
+
+
+
+
+
+
+
+    def calculate_posterior_q_no_prior(
+        self, support_means, support_precisions, support_targets
+    ):
+
+        num_samples = self.get_num_samples(support_targets)
+
+        (
+            posterior_means,
+            posterior_precisions,
+            log_support_product_normalisation,
+        ) = self.inner_gaussian_product(
+            support_means, support_precisions, support_targets
+        )
+
+        log_Z = log_support_product_normalisation
+        return posterior_means, posterior_precisions, log_Z
+
+    def calculate_Znv_no_prior(
+        self,
+        posterior_means,
+        posterior_precisions,
+        log_Z,
+        query_means,
+        query_precisions,
+    ):
+        (
+            outer_product_means,
+            outer_product_precisions,
+            log_outer_product_normalisation,
+        ) = self.outer_gaussian_product(
+            query_means,
+            query_precisions,
+            posterior_means,
+            posterior_precisions,
+        )
+
+        log_Znv = (
+            log_Z.unsqueeze(-1)
+            + log_outer_product_normalisation
+        )
+
+        return log_Znv
+
+
+
+
     def compute_environment_representations(self, support_trajectories):
 
         support_means, support_precisions = self.encoder.forward(
@@ -341,7 +393,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         support_targets = support_trajectories["targets"].unsqueeze(0)
 
         (env_means, env_precisions, log_Z,) = self.calculate_posterior_q(
-            support_means, support_precisions, support_targets, prior_precision=1
+            support_means, support_precisions, support_targets
         )
 
         return env_means, env_precisions
@@ -371,24 +423,27 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         query_precisions = query_precisions.unsqueeze(0)
         query_targets = query_views["targets"].unsqueeze(0)
 
-        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
-            support_means, support_precisions, support_targets, prior_precision=0.1
+        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q_no_prior(
+            support_means, support_precisions, support_targets
         )
 
-        log_Znv = self.calculate_Znv(
+        log_Znv = self.calculate_Znv_no_prior(
             posterior_means,
             posterior_precisions,
             log_Z,
             query_means,
             query_precisions,
-            prior_precision=0.1,
         )
 
         log_likelihood = (
             ((num_samples + 1) * log_Z)
-            - (num_samples * torch.logsumexp(log_Znv, dim=-1))
+            - (torch.logsumexp(log_Znv, dim=-1))
             + (num_samples * math.log(log_Znv.shape[-1]))
         ).sum()
+
+        # log_likelihood = (
+        #     log_Z + num_samples*torch.log(torch.exp(log_Z)/torch.exp(log_Znv.mean(dim=-1)))
+        # ).sum()
 
         _, predictions = (log_Znv - log_Z.unsqueeze(-1)).max(1)
 
@@ -400,5 +455,11 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         output["predictions"] = predictions
         output["loss"] = loss
         output["accuracy"] = accuracy
+        output['mean_log_Z'] = log_Z.mean()
+        output['mean_log_Znv'] = log_Znv.mean()
+        output['loss_numerator'] = ((num_samples + 1) * log_Z).sum()
+        output['loss_denominator'] = (torch.logsumexp(log_Znv, dim=-1)).sum()
+        output['support_means'] = support_means.mean()
+        output['support_precisions'] = support_precisions.mean()
 
         return output
