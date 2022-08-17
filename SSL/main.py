@@ -2,6 +2,7 @@ import os
 import torch as T
 import torch.optim as optim
 import torchvision
+from torchvision import transforms as Transforms
 import numpy as np
 import argparse
 import GPUtil
@@ -51,9 +52,10 @@ def parse_ssl_train_args():
     parser.add_argument(
         "--n_query",
         type=int,
-        default=10,
+        default=5,
         help="Number of query observations of each image",
     )
+    parser.add_argument("--environment_queries", action="store_true", default=False, help="Use full images as queries.")
     parser.add_argument(
         "--patch_size",
         type=int,
@@ -92,7 +94,7 @@ if __name__ == "__main__":
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     deviceID = GPUtil.getFirstAvailable(
-        order="load", maxLoad=0.4, maxMemory=0.4, attempts=1, interval=900, verbose=True
+        order="load", maxLoad=0.1, maxMemory=0.1, attempts=1, interval=900, verbose=True
     )[0]
     os.environ["CUDA_VISIBLE_DEVICES"] = str(deviceID)
     device = T.device("cuda" if T.cuda.is_available() else "cpu")
@@ -108,9 +110,14 @@ if __name__ == "__main__":
         dataloader = dataset_loader.COCOLoader()
         trainset = dataloader.load_data(data_path="/disk/scratch_fast/datasets/coco/")
 
+    if config.environment_queries:
+        trajectory_length = config.n_support
+    else:
+        trajectory_length = config.n_support + config.n_query
+
     observation_generator = observation_generators.CropTrajectoryGenerator(
         batch_size=config.num_classes,
-        trajectory_length=config.n_support + config.n_query,
+        trajectory_length=trajectory_length,
         image_shape=dataloader.image_shape,
         output_shape=config.output_shape,
         patch_size=config.patch_size,
@@ -174,30 +181,47 @@ if __name__ == "__main__":
                 crop_coordinates,
             ) = observation_generator.generate_trajectories(images)
 
-            support_images = cropped_images[:, : config.n_support, :, :, :].reshape(
-                -1, *config.output_shape
-            ).to(device)
-            query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
-                -1, *config.output_shape
-            ).to(device)
+            if config.environment_queries:
+                support_images = cropped_images.reshape(-1, *config.output_shape).to(device)
+                query_images = Transforms.functional.resize(images, size=(config.output_shape[1], config.output_shape[2])).to(device)
 
-            support_coordinates = crop_coordinates[:, : config.n_support, :].reshape(
-                -1, 4
-            ).to(device)
-            query_coordinates = crop_coordinates[:, config.n_support :, :].reshape(
-                -1, 4
-            ).to(device)
+                support_coordinates = crop_coordinates.reshape(-1, 4).to(device)
+                query_coordinates = T.tensor([0,0,config.output_shape[1], config.output_shape[2]]).unsqueeze(0).repeat(query_images.shape[0], 1).to(device)
 
-            support_targets = T.flatten(
-                T.tensor(list(range(config.num_classes)), dtype=T.int64)
-                .unsqueeze(1)
-                .repeat(1, config.n_support)
-            ).to(device)
-            query_targets = T.flatten(
-                T.tensor(list(range(config.num_classes)), dtype=T.int64)
-                .unsqueeze(1)
-                .repeat(1, config.n_query)
-            ).to(device)
+                support_targets = T.flatten(
+                    T.tensor(list(range(config.num_classes)), dtype=T.int64)
+                    .unsqueeze(1)
+                    .repeat(1, config.n_support)
+                ).to(device)
+                query_targets = T.flatten(
+                    T.tensor(list(range(config.num_classes)), dtype=T.int64)
+                    .unsqueeze(1)
+                ).to(device)
+            else:
+                support_images = cropped_images[:, : config.n_support, :, :, :].reshape(
+                    -1, *config.output_shape
+                ).to(device)
+                query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
+                    -1, *config.output_shape
+                ).to(device)
+
+                support_coordinates = crop_coordinates[:, : config.n_support, :].reshape(
+                    -1, 4
+                ).to(device)
+                query_coordinates = crop_coordinates[:, config.n_support :, :].reshape(
+                    -1, 4
+                ).to(device)
+
+                support_targets = T.flatten(
+                    T.tensor(list(range(config.num_classes)), dtype=T.int64)
+                    .unsqueeze(1)
+                    .repeat(1, config.n_support)
+                ).to(device)
+                query_targets = T.flatten(
+                    T.tensor(list(range(config.num_classes)), dtype=T.int64)
+                    .unsqueeze(1)
+                    .repeat(1, config.n_query)
+                ).to(device)
 
             # dataloader.display_image(images[0, :, :, :])
             # print(support_targets[:20])
