@@ -247,7 +247,7 @@ if __name__ == "__main__":
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
-            prior_precision=0.01,
+            prior_precision=1,
             use_location=config.use_location,
             use_direction=config.use_direction,
             use_coordinates=False,
@@ -294,6 +294,8 @@ if __name__ == "__main__":
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         loss = checkpoint["loss"]
         accuracy = checkpoint["accuracy"]
+
+    #learner.encoder.load_state_dict(T.load("./generative_contrastive_modelling/checkpoints/gcm_encoder_chkpt.pt"))
 
     # Start training
     print("Starting training...")

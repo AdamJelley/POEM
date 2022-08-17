@@ -200,7 +200,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         """
 
         prior_product_mean = 0
-        prior_product_precision = prior_powers * self.prior_precision
+        prior_product_precision = torch.maximum(prior_powers, torch.ones_like(prior_powers))*self.prior_precision
         log_prior_product_normalisation = 0.5 * (1 - prior_powers) * math.log(
             2 * math.pi
         ) + 0.5 * (
@@ -423,11 +423,11 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         query_precisions = query_precisions.unsqueeze(0)
         query_targets = query_views["targets"].unsqueeze(0)
 
-        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q_no_prior(
+        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
             support_means, support_precisions, support_targets
         )
 
-        log_Znv = self.calculate_Znv_no_prior(
+        log_Znv = self.calculate_Znv(
             posterior_means,
             posterior_precisions,
             log_Z,
@@ -437,13 +437,14 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
 
         log_likelihood = (
             ((num_samples + 1) * log_Z)
-            - (torch.logsumexp(log_Znv, dim=-1))
+            - num_samples * (torch.logsumexp(log_Znv, dim=-1))
             + (num_samples * math.log(log_Znv.shape[-1]))
         ).sum()
 
         # log_likelihood = (
         #     log_Z + num_samples*torch.log(torch.exp(log_Z)/torch.exp(log_Znv.mean(dim=-1)))
         # ).sum()
+        print(support_precisions.mean())
 
         _, predictions = (log_Znv - log_Z.unsqueeze(-1)).max(1)
 
@@ -463,3 +464,32 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         output['support_precisions'] = support_precisions.mean()
 
         return output
+
+    def compute_tau_scaling(self, precision):
+        support_means = torch.zeros((1,1,self.z_dim))
+        support_precisions = precision*torch.ones((1,1,self.z_dim))
+        support_targets = torch.zeros((1,1), dtype=torch.int64)
+        num_samples = self.get_num_samples(support_targets)
+
+        query_means = torch.zeros((1,100,self.z_dim))
+        query_precisions = precision*torch.ones((1,100,self.z_dim))
+
+        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
+            support_means, support_precisions, support_targets
+        )
+
+        log_Znv = self.calculate_Znv(
+            posterior_means,
+            posterior_precisions,
+            log_Z,
+            query_means,
+            query_precisions,
+        )
+
+        log_likelihood = (
+            ((num_samples + 1) * log_Z)
+            - num_samples * (torch.logsumexp(log_Znv, dim=-1))
+            + (num_samples * math.log(log_Znv.shape[-1]))
+        ).sum()
+
+        return log_likelihood
