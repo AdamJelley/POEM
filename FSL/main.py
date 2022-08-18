@@ -13,7 +13,7 @@ from generative_contrastive_modelling.unsupervised_gcm import UnsupervisedGenera
 from generative_contrastive_modelling.protonet import PrototypicalNetwork
 from FSL.train import train
 
-
+#T.autograd.set_detect_anomaly(True)
 # warnings.filterwarnings(action="ignore", module="torchvision")
 
 
@@ -50,10 +50,11 @@ def parse_fsl_args():
         "--n_support", type=int, default=5, help="Number of support examples."
     )
     parser.add_argument(
-        "--n_query", type=int, default=40, help="Number of query examples."
+        "--n_query", type=int, default=5, help="Number of query examples."
     )
+    parser.add_argument("--group_classes", type=int, default=1, help="Number of classes to group together under single label.")
     parser.add_argument(
-        "--embedding_dim", type=int, default=64, help="Representation size."
+        "--embedding_dim", type=int, default=128, help="Representation size."
     )
     parser.add_argument(
         "--lr", type=float, default=0.001, help="Learning rate for learner"
@@ -67,6 +68,8 @@ def parse_fsl_args():
     args = parser.parse_args()
     if args.use_coordinates and not (args.cropping or args.masking):
         parser.error("Cannot use coordinates without cropping or masking.")
+    if args.n_way%args.group_classes!=0:
+        parser.error(f"Class groupings ({args.group_classes}) must divide the number of classes ({args.n_way}).")
 
     return args
 
@@ -143,6 +146,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(learner.parameters(), lr=config.lr)
 
     outputs = train(
+        train="train",
         max_epochs=config.num_epochs,
         epoch_size=config.epoch_size,
         dataloader=dataloader,
@@ -152,6 +156,7 @@ if __name__ == "__main__":
         n_way=config.n_way,
         n_support=config.n_support,
         n_query=config.n_query,
+        group_classes=config.group_classes,
         apply_cropping=config.cropping,
         apply_masking=config.masking,
         patch_size=config.patch_size,
@@ -175,5 +180,25 @@ if __name__ == "__main__":
     )
     wandb.save(checkpoint_path, base_path=checkpoint_path)
 
+    outputs = train(
+        train="test",
+        max_epochs=1,
+        epoch_size=config.test_episodes,
+        dataloader=dataloader,
+        device=device,
+        learner=learner,
+        optimizer=optimizer,
+        n_way=config.n_way,
+        n_support=config.n_support,
+        n_query=config.n_query,
+        group_classes=config.group_classes,
+        apply_cropping=config.cropping,
+        apply_masking=config.masking,
+        patch_size=config.patch_size,
+        invert=config.invert,
+        no_noise=config.no_noise,
+        output_shape=config.output_shape,
+        use_coordinates=config.use_coordinates,
+    )
 
     wandb.finish()
