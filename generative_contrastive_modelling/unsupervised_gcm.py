@@ -8,7 +8,14 @@ from generative_contrastive_modelling.gcm_encoder import GCMEncoder
 
 class UnsupervisedGenerativeContrastiveModelling(nn.Module):
     def __init__(
-        self, input_shape, hid_dim, z_dim, prior_precision, use_location, use_direction, use_coordinates
+        self,
+        input_shape,
+        hid_dim,
+        z_dim,
+        prior_precision,
+        use_location,
+        use_direction,
+        use_coordinates,
     ):
         super().__init__()
         self.z_dim = z_dim
@@ -184,9 +191,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         ).sum(dim=-1)
         return product_mean, product_precision, log_product_normalisation
 
-    def calculate_Gaussian_prior_product(
-        self, prior_shape, prior_powers
-    ):
+    def calculate_Gaussian_prior_product(self, prior_shape, prior_powers):
         """Calculate product of prior_power Gaussian priors with mean 0 and precision prior_precision.
 
         Args:
@@ -200,7 +205,10 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         """
 
         prior_product_mean = 0
-        prior_product_precision = torch.maximum(prior_powers, torch.ones_like(prior_powers))*self.prior_precision
+        prior_product_precision = (
+            torch.maximum(prior_powers, torch.ones_like(prior_powers))
+            * self.prior_precision
+        )
         log_prior_product_normalisation = 0.5 * (1 - prior_powers) * math.log(
             2 * math.pi
         ) + 0.5 * (
@@ -249,9 +257,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         ).sum(dim=-1)
         return quotient_means, quotient_precisions, log_quotient_normalisation
 
-    def calculate_posterior_q(
-        self, support_means, support_precisions, support_targets
-    ):
+    def calculate_posterior_q(self, support_means, support_precisions, support_targets):
 
         num_samples = self.get_num_samples(support_targets)
 
@@ -326,13 +332,6 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
 
         return log_Znv
 
-
-
-
-
-
-
-
     def calculate_posterior_q_no_prior(
         self, support_means, support_precisions, support_targets
     ):
@@ -369,15 +368,9 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
             posterior_precisions,
         )
 
-        log_Znv = (
-            log_Z.unsqueeze(-1)
-            + log_outer_product_normalisation
-        )
+        log_Znv = log_Z.unsqueeze(-1) + log_outer_product_normalisation
 
         return log_Znv
-
-
-
 
     def compute_environment_representations(self, support_trajectories):
 
@@ -389,7 +382,7 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         )
 
         support_means = support_means.unsqueeze(0)
-        support_precisions = support_precisions.unsqueeze(0)
+        support_precisions = support_precisions.unsqueeze(0) + self.prior_precision
         support_targets = support_trajectories["targets"].unsqueeze(0)
 
         (env_means, env_precisions, log_Z,) = self.calculate_posterior_q(
@@ -415,12 +408,12 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         )
 
         support_means = support_means.unsqueeze(0)
-        support_precisions = support_precisions.unsqueeze(0)
+        support_precisions = support_precisions.unsqueeze(0) + self.prior_precision
         support_targets = support_trajectories["targets"].unsqueeze(0)
         num_samples = self.get_num_samples(support_targets)
 
         query_means = query_means.unsqueeze(0)
-        query_precisions = query_precisions.unsqueeze(0)
+        query_precisions = query_precisions.unsqueeze(0) + self.prior_precision
         query_targets = query_views["targets"].unsqueeze(0)
 
         posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
@@ -456,23 +449,23 @@ class UnsupervisedGenerativeContrastiveModelling(nn.Module):
         output["predictions"] = predictions
         output["loss"] = loss
         output["accuracy"] = accuracy
-        output['mean_log_Z'] = log_Z.mean()
-        output['mean_log_Znv'] = log_Znv.mean()
-        output['loss_numerator'] = ((num_samples + 1) * log_Z).sum()
-        output['loss_denominator'] = (torch.logsumexp(log_Znv, dim=-1)).sum()
-        output['support_means'] = support_means.mean()
-        output['support_precisions'] = support_precisions.mean()
+        output["mean_log_Z"] = log_Z.mean()
+        output["mean_log_Znv"] = log_Znv.mean()
+        output["loss_numerator"] = ((num_samples + 1) * log_Z).sum()
+        output["loss_denominator"] = (torch.logsumexp(log_Znv, dim=-1)).sum()
+        output["support_means"] = support_means.mean()
+        output["support_precisions"] = support_precisions.mean()
 
         return output
 
     def compute_tau_scaling(self, precision):
-        support_means = torch.zeros((1,1,self.z_dim))
-        support_precisions = precision*torch.ones((1,1,self.z_dim))
-        support_targets = torch.zeros((1,1), dtype=torch.int64)
+        support_means = torch.zeros((1, 1, self.z_dim))
+        support_precisions = precision * torch.ones((1, 1, self.z_dim))
+        support_targets = torch.zeros((1, 1), dtype=torch.int64)
         num_samples = self.get_num_samples(support_targets)
 
-        query_means = torch.zeros((1,100,self.z_dim))
-        query_precisions = precision*torch.ones((1,100,self.z_dim))
+        query_means = torch.zeros((1, 100, self.z_dim))
+        query_precisions = precision * torch.ones((1, 100, self.z_dim))
 
         posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
             support_means, support_precisions, support_targets
