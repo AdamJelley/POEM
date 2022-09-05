@@ -8,12 +8,12 @@ import wandb
 from torchmeta.datasets.helpers import omniglot, miniimagenet
 from torchmeta.utils.data import BatchMetaDataLoader
 
-from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
-from generative_contrastive_modelling.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
-from generative_contrastive_modelling.protonet import PrototypicalNetwork
+from learners.gcm import GenerativeContrastiveModelling
+from learners.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
+from learners.protonet import PrototypicalNetwork
 from FSL.train import train
 
-#T.autograd.set_detect_anomaly(True)
+# T.autograd.set_detect_anomaly(True)
 # warnings.filterwarnings(action="ignore", module="torchvision")
 
 
@@ -52,7 +52,12 @@ def parse_fsl_args():
     parser.add_argument(
         "--n_query", type=int, default=5, help="Number of query examples."
     )
-    parser.add_argument("--group_classes", type=int, default=1, help="Number of classes to group together under single label.")
+    parser.add_argument(
+        "--group_classes",
+        type=int,
+        default=1,
+        help="Number of classes to group together under single label.",
+    )
     parser.add_argument(
         "--embedding_dim", type=int, default=128, help="Representation size."
     )
@@ -68,8 +73,10 @@ def parse_fsl_args():
     args = parser.parse_args()
     if args.use_coordinates and not (args.cropping or args.masking):
         parser.error("Cannot use coordinates without cropping or masking.")
-    if args.n_way%args.group_classes!=0:
-        parser.error(f"Class groupings ({args.group_classes}) must divide the number of classes ({args.n_way}).")
+    if args.n_way % args.group_classes != 0:
+        parser.error(
+            f"Class groupings ({args.group_classes}) must divide the number of classes ({args.n_way})."
+        )
 
     return args
 

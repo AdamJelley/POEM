@@ -10,11 +10,12 @@ import wandb
 from dataclasses import astuple
 
 from SSL.process_data import dataset_loader, observation_generators
-from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
-from generative_contrastive_modelling.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
-from generative_contrastive_modelling.protonet import PrototypicalNetwork
+from learners.gcm import GenerativeContrastiveModelling
+from learners.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
+from learners.protonet import PrototypicalNetwork
 
 T.autograd.set_detect_anomaly(True)
+
 
 def parse_ssl_train_args():
     parser = argparse.ArgumentParser(
@@ -55,7 +56,12 @@ def parse_ssl_train_args():
         default=5,
         help="Number of query observations of each image",
     )
-    parser.add_argument("--environment_queries", action="store_true", default=False, help="Use full images as queries.")
+    parser.add_argument(
+        "--environment_queries",
+        action="store_true",
+        default=False,
+        help="Use full images as queries.",
+    )
     parser.add_argument(
         "--patch_size",
         type=int,
@@ -182,11 +188,20 @@ if __name__ == "__main__":
             ) = observation_generator.generate_trajectories(images)
 
             if config.environment_queries:
-                support_images = cropped_images.reshape(-1, *config.output_shape).to(device)
-                query_images = Transforms.functional.resize(images, size=(config.output_shape[1], config.output_shape[2])).to(device)
+                support_images = cropped_images.reshape(-1, *config.output_shape).to(
+                    device
+                )
+                query_images = Transforms.functional.resize(
+                    images, size=(config.output_shape[1], config.output_shape[2])
+                ).to(device)
 
                 support_coordinates = crop_coordinates.reshape(-1, 4).to(device)
-                query_coordinates = T.tensor([0,0,config.output_shape[1], config.output_shape[2]]).unsqueeze(0).repeat(query_images.shape[0], 1).to(device)
+                query_coordinates = (
+                    T.tensor([0, 0, config.output_shape[1], config.output_shape[2]])
+                    .unsqueeze(0)
+                    .repeat(query_images.shape[0], 1)
+                    .to(device)
+                )
 
                 support_targets = T.flatten(
                     T.tensor(list(range(config.num_classes)), dtype=T.int64)
@@ -194,23 +209,28 @@ if __name__ == "__main__":
                     .repeat(1, config.n_support)
                 ).to(device)
                 query_targets = T.flatten(
-                    T.tensor(list(range(config.num_classes)), dtype=T.int64)
-                    .unsqueeze(1)
+                    T.tensor(list(range(config.num_classes)), dtype=T.int64).unsqueeze(
+                        1
+                    )
                 ).to(device)
             else:
-                support_images = cropped_images[:, : config.n_support, :, :, :].reshape(
-                    -1, *config.output_shape
-                ).to(device)
-                query_images = cropped_images[:, config.n_support :, :, :, :].reshape(
-                    -1, *config.output_shape
-                ).to(device)
+                support_images = (
+                    cropped_images[:, : config.n_support, :, :, :]
+                    .reshape(-1, *config.output_shape)
+                    .to(device)
+                )
+                query_images = (
+                    cropped_images[:, config.n_support :, :, :, :]
+                    .reshape(-1, *config.output_shape)
+                    .to(device)
+                )
 
-                support_coordinates = crop_coordinates[:, : config.n_support, :].reshape(
-                    -1, 4
-                ).to(device)
-                query_coordinates = crop_coordinates[:, config.n_support :, :].reshape(
-                    -1, 4
-                ).to(device)
+                support_coordinates = (
+                    crop_coordinates[:, : config.n_support, :].reshape(-1, 4).to(device)
+                )
+                query_coordinates = (
+                    crop_coordinates[:, config.n_support :, :].reshape(-1, 4).to(device)
+                )
 
                 support_targets = T.flatten(
                     T.tensor(list(range(config.num_classes)), dtype=T.int64)

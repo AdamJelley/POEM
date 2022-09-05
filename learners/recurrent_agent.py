@@ -3,9 +3,9 @@ import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 
-from generative_contrastive_modelling.proto_encoder import ProtoEncoder
-from generative_contrastive_modelling.recurrent_encoder import RecurrentEncoder
-from generative_contrastive_modelling.projection_network import ProjectionNetwork
+from models.proto_encoder import ProtoEncoder
+from models.recurrent_encoder import RecurrentEncoder
+from models.projection_network import ProjectionNetwork
 
 
 class RecurrentAgent(nn.Module):

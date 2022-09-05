@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from generative_contrastive_modelling.proto_encoder import ProtoEncoder
-from generative_contrastive_modelling.projection_network import ProjectionNetwork
+from models.proto_encoder import ProtoEncoder
+from models.projection_network import ProjectionNetwork
 from process_trajectories import orientate_observations
 
 

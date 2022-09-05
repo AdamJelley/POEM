@@ -6,18 +6,18 @@ import wandb
 
 from minigrid_rl_starter import utils
 from minigrid_rl_starter.utils import device
-from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
-from generative_contrastive_modelling.unsupervised_gcm import (
+from learners.gcm import GenerativeContrastiveModelling
+from learners.unsupervised_gcm import (
     UnsupervisedGenerativeContrastiveModelling,
 )
-from generative_contrastive_modelling.protonet import PrototypicalNetwork
-from generative_contrastive_modelling.recurrent_agent import RecurrentAgent
-from generative_contrastive_modelling.complete_observation_learner import (
+from learners.protonet import PrototypicalNetwork
+from learners.recurrent_agent import RecurrentAgent
+from learners.complete_observation_learner import (
     CompleteObservationLearner,
 )
 from train import train
 
-#T.autograd.set_detect_anomaly(True)
+# T.autograd.set_detect_anomaly(True)
 
 
 def parse_train_args():
@@ -295,7 +295,7 @@ if __name__ == "__main__":
         loss = checkpoint["loss"]
         accuracy = checkpoint["accuracy"]
 
-    #learner.encoder.load_state_dict(T.load("./generative_contrastive_modelling/checkpoints/gcm_encoder_chkpt.pt"))
+    # learner.encoder.load_state_dict(T.load("./generative_contrastive_modelling/checkpoints/gcm_encoder_chkpt.pt"))
 
     # Start training
     print("Starting training...")

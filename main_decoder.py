@@ -11,10 +11,10 @@ import minigrid_rl_starter.utils as utils
 from minigrid_rl_starter.utils import device
 from generate_trajectories import generate_data
 from process_trajectories import data_to_tensors
-from generative_contrastive_modelling.gcm import GenerativeContrastiveModelling
-from generative_contrastive_modelling.protonet import PrototypicalNetwork
-from generative_contrastive_modelling.recurrent_agent import RecurrentAgent
-from generative_contrastive_modelling.environment_decoder import EnvironmentDecoder
+from learners.gcm import GenerativeContrastiveModelling
+from learners.protonet import PrototypicalNetwork
+from learners.recurrent_agent import RecurrentAgent
+from models.environment_decoder import EnvironmentDecoder
 from utils import load_checkpoint
 
 
