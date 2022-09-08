@@ -44,17 +44,17 @@ def train(
             targets = targets.reshape(
                 batch_size * n_way, n_support + n_query
             )
-
-            targets = (
-                T.tensor(
-                    range(len(targets[:, 0]) // group_classes),
-                    dtype=T.int64,
-                    device=device,
+            if group_classes>1:
+                targets = (
+                    T.tensor(
+                        range(len(targets[:, 0]) // group_classes),
+                        dtype=T.int64,
+                        device=device,
+                    )
+                    .repeat_interleave(group_classes)
+                    .unsqueeze(1)
+                    .expand_as(targets)
                 )
-                .repeat_interleave(group_classes)
-                .unsqueeze(1)
-                .expand_as(targets)
-            )
 
             if apply_cropping:
                 inputs, coordinates = crop_input(inputs, patch_size)
@@ -120,6 +120,15 @@ def train(
                     {
                         "Training/Loss": outputs["loss"],
                         "Training/Accuracy": outputs["accuracy"],
+                    }
+                )
+                if learner.__class__.__name__=='GenerativeContrastiveModelling':
+                    wandb.log(
+                    {
+                        "Training/Support Precision": outputs["support_precision_mean"],
+                        "Training/Query Precision": outputs["query_precision_mean"],
+                        "Training/Support Precision Var": outputs["support_precision_var"],
+                        "Training/Query Precision Var": outputs["query_precision_var"],
                     }
                 )
                 if epoch == 0 and episode == 0:

@@ -252,6 +252,11 @@ class GenerativeContrastiveModelling(nn.Module):
         output["predictions"] = predictions
         output["loss"] = loss
         output["accuracy"] = accuracy
+        output["support_precision_mean"] = support_precisions.mean()
+        output["support_precision_var"] = support_precisions.var()
+        output["query_precision_mean"] = query_precisions.mean()
+        output["query_precision_var"] = query_precisions.var()
+
 
         return output
 
