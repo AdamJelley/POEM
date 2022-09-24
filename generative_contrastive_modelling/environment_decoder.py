@@ -54,7 +54,7 @@ class EnvironmentDecoder(nn.Module):
             nn.BatchNorm1d(self.output_dim),
             nn.ELU(),
             nn.Linear(self.output_dim, self.output_dim),
-            nn.Sigmoid(),
+            #nn.Sigmoid(),
         )
 
     def transpose_conv_block(self, in_channels, out_channels):
