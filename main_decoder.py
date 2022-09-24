@@ -179,7 +179,8 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=config.use_location,
             use_direction=config.use_direction,
-        )
+            use_coordinates=False
+        ).to(device)
 
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
@@ -188,8 +189,9 @@ if __name__ == "__main__":
             z_dim=config.embedding_dim,
             use_location=config.use_location,
             use_direction=config.use_direction,
+            use_coordinates=False,
             project_embedding=config.project_embedding,
-        )
+        ).to(device)
 
     elif config.learner == "recurrent":
         learner = RecurrentAgent(
@@ -199,7 +201,7 @@ if __name__ == "__main__":
             use_location=config.use_location,
             use_direction=config.use_direction,
             project_embedding=config.project_embedding,
-        )
+        ).to(device)
 
     print(f"Loading trained learner from {config.model_run_path}...")
     checkpoint = load_checkpoint(run_path=config.model_run_path)
@@ -207,7 +209,7 @@ if __name__ == "__main__":
 
     decoder = EnvironmentDecoder(
         config.embedding_dim, config.hidden_dim, config.output_shape
-    )
+    ).to(device)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=config.lr)
 
     for episode in range(config.num_episodes):
@@ -217,10 +219,20 @@ if __name__ == "__main__":
             episodes=config.num_environments,
             render=config.render_agent,
         )
-        train_trajectories = data_to_tensors(train_dataset)
+        train_trajectories = data_to_tensors(train_dataset, device)
         if config.decode_grid:
             # Periodically sample (3, 56, 56) down to grid representation of (3, 11, 11)
             environments = train_trajectories["environments"][:, :, 2::5, 2::5] / 255.0
+            if episode==0:
+                pixel_map = {pixel:i for i, pixel in enumerate(environments[0].reshape(3,-1).unique(dim=1).T)}
+                idx_map = {v:k for k,v in pixel_map.items()}
+
+            discrete_environments=T.zeros
+            for i in environments.shape[0]:
+                for j in environments.shape[2]:
+                    for k in environments.shape[3]:
+                        discrete_environments[i,:,j,k] = pixel_map[environments[i,:,j,k]]
+
         else:
             environments = (
                 F.interpolate(
@@ -239,6 +251,7 @@ if __name__ == "__main__":
             precisions=env_precisions.squeeze(),
             sample=config.sample,
         )
+
         reconstruction_loss = F.mse_loss(env_reconstructions, environments)
 
         decoder_optimizer.zero_grad()
@@ -249,6 +262,7 @@ if __name__ == "__main__":
         wandb.log({"Training/Loss": reconstruction_loss})
 
         if config.log_frequency != -1 and episode % config.log_frequency == 0:
+            #env_reconstructions = env_reconstructions.detach().cpu().apply_(lambda pixel_value: min(pixel_values, key=lambda x: abs(x-pixel_value)))
             wandb.log(
                 {
                     "Visualisation/Environments": wandb.Image(

@@ -30,6 +30,9 @@ def parse_fsl_args():
         "--cropping", action="store_true", help="Apply cropping to images."
     )
     parser.add_argument(
+        "--num_crops", type=int, default=1, help="Num crops of each support/query sample."
+    )
+    parser.add_argument(
         "--patch_size", type=int, default=-1, help="Fix the width of crop or mask."
     )
     parser.add_argument(
@@ -162,6 +165,7 @@ if __name__ == "__main__":
         group_classes=config.group_classes,
         apply_cropping=config.cropping,
         apply_masking=config.masking,
+        num_crops=config.num_crops,
         patch_size=config.patch_size,
         invert=config.invert,
         no_noise=config.no_noise,
@@ -197,6 +201,7 @@ if __name__ == "__main__":
         group_classes=config.group_classes,
         apply_cropping=config.cropping,
         apply_masking=config.masking,
+        num_crops=config.num_crops,
         patch_size=config.patch_size,
         invert=config.invert,
         no_noise=config.no_noise,
