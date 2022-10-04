@@ -125,7 +125,7 @@ def parse_train_args():
     args.test_seed = args.seed + 1337
     args.input_shape = (3, 56, 56)
     if args.decode_grid:
-        args.output_shape = (3, 11, 11)
+        args.output_shape = (6, 11, 11)
     else:
         # args.input_shape = (3, 352, 352)
         args.output_shape = (3, 32, 32)
@@ -222,16 +222,21 @@ if __name__ == "__main__":
         train_trajectories = data_to_tensors(train_dataset, device)
         if config.decode_grid:
             # Periodically sample (3, 56, 56) down to grid representation of (3, 11, 11)
-            environments = train_trajectories["environments"][:, :, 2::5, 2::5] / 255.0
+            environments = train_trajectories["environments"][:, :, 2::5, 2::5] #/ 255.0
             if episode==0:
-                pixel_map = {pixel:i for i, pixel in enumerate(environments[0].reshape(3,-1).unique(dim=1).T)}
+                one_hot = T.eye(6)
+                pixel_map = {pixel: one_hot[i,:] for i, pixel in enumerate(environments[0].reshape(3,-1).unique(dim=1).T)}
+                sum_pixel_map = {int(k.sum()): v for k, v in pixel_map.items()}
                 idx_map = {v:k for k,v in pixel_map.items()}
+                sum_idx_map = {v:k for k,v in sum_pixel_map.items()}
 
-            discrete_environments=T.zeros
-            for i in environments.shape[0]:
-                for j in environments.shape[2]:
-                    for k in environments.shape[3]:
-                        discrete_environments[i,:,j,k] = pixel_map[environments[i,:,j,k]]
+            oh_environments=T.zeros((environments.shape[0],6,11,11)).to(device)
+            for i in range(environments.shape[0]):
+                for j in range(environments.shape[2]):
+                    for k in range(environments.shape[3]):
+                        oh_environments[i,:,j,k] = sum_pixel_map[int(environments[i,:,j,k].sum())]
+
+            #idx_environments = environments.sum(dim=1, keepdim=True).cpu().apply_(lambda x: sum_pixel_map[int(x)]).to(device)
 
         else:
             environments = (
@@ -246,13 +251,13 @@ if __name__ == "__main__":
             train_trajectories
         )
 
-        env_reconstructions = decoder.forward(
+        oh_env_reconstructions = decoder.forward(
             means=env_means.squeeze(),
             precisions=env_precisions.squeeze(),
             sample=config.sample,
         )
 
-        reconstruction_loss = F.mse_loss(env_reconstructions, environments)
+        reconstruction_loss = F.mse_loss(oh_env_reconstructions, oh_environments)
 
         decoder_optimizer.zero_grad()
         reconstruction_loss.backward()
@@ -262,7 +267,23 @@ if __name__ == "__main__":
         wandb.log({"Training/Loss": reconstruction_loss})
 
         if config.log_frequency != -1 and episode % config.log_frequency == 0:
-            #env_reconstructions = env_reconstructions.detach().cpu().apply_(lambda pixel_value: min(pixel_values, key=lambda x: abs(x-pixel_value)))
+            #oh_env_reconstructions = env_reconstructions.detach().cpu().apply_(lambda x: min(pixel_map.values(), key=lambda value: abs(x-value)))
+
+            env_reconstructions=T.zeros_like(environments)
+            for i in range(environments.shape[0]):
+                for j in range(environments.shape[2]):
+                    for k in range(environments.shape[3]):
+                        oh_pixel = min(pixel_map.values(), key=lambda value: F.mse_loss(oh_env_reconstructions[i,:,j,k], value.to(device)))
+                        env_reconstructions[i,:,j,k] = idx_map[oh_pixel]
+
+            # Map to closest real pixel
+            # sum_env_reconstructions = env_reconstructions.sum(dim=1, keepdim=True).detach().cpu().apply_(lambda x: min(sum_pixel_map.keys(), key=lambda value: abs(255*x-value)))
+            # env_reconstructions=T.zeros_like(environments)
+            # for i in range(environments.shape[0]):
+            #     for j in range(environments.shape[2]):
+            #         for k in range(environments.shape[3]):
+            #             env_reconstructions[i,:,j,k] = sum_pixel_map[int(sum_env_reconstructions[i,:,j,k])]
+
             wandb.log(
                 {
                     "Visualisation/Environments": wandb.Image(

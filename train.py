@@ -70,8 +70,10 @@ def train(
                 query_dataset_filtered = remove_seen_queries(
                     query_dataset, train_dataset
                 )
-
-                query_trajectories_filtered = data_to_tensors(query_dataset_filtered, device)
+                try:
+                    query_trajectories_filtered = data_to_tensors(query_dataset_filtered, device)
+                except:
+                    query_trajectories_filtered = data_to_tensors(query_dataset, device)
 
                 query_views, _ = sample_views(query_trajectories_filtered, num_queries)
 
