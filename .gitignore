@@ -140,3 +140,4 @@ dmypy.json
 data
 procgen
 checkpoints
+*.png

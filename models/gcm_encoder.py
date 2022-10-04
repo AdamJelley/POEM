@@ -20,7 +20,7 @@ class GCMEncoder(Encoder):
         if self.use_direction:
             self.encoder_embedding_size += 4
         if self.use_coordinates:
-            self.encoder_embedding_size += 4
+            self.encoder_embedding_size += 5
         self.mean_head = nn.Sequential(
             nn.Linear(self.encoder_embedding_size, z_dim),
             nn.BatchNorm1d(z_dim),

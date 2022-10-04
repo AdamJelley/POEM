@@ -30,6 +30,9 @@ def parse_fsl_args():
         "--cropping", action="store_true", help="Apply cropping to images."
     )
     parser.add_argument(
+        "--num_crops", type=int, default=1, help="Num crops of each support/query sample."
+    )
+    parser.add_argument(
         "--patch_size", type=int, default=-1, help="Fix the width of crop or mask."
     )
     parser.add_argument(
@@ -57,6 +60,9 @@ def parse_fsl_args():
         type=int,
         default=1,
         help="Number of classes to group together under single label.",
+    )
+    parser.add_argument(
+        "--hidden_dim", type=int, default=128, help="Representation size."
     )
     parser.add_argument(
         "--embedding_dim", type=int, default=128, help="Representation size."
@@ -123,7 +129,7 @@ if __name__ == "__main__":
     if config.learner == "GCM":
         learner = GenerativeContrastiveModelling(
             input_shape=config.output_shape,
-            hid_dim=config.embedding_dim,
+            hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
             use_location=False,
             use_direction=False,
@@ -132,7 +138,7 @@ if __name__ == "__main__":
     elif config.learner == "unsupervised_GCM":
         learner = UnsupervisedGenerativeContrastiveModelling(
             input_shape=config.output_shape,
-            hid_dim=config.embedding_dim,
+            hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
             prior_precision=0.01,
             use_location=False,
@@ -142,7 +148,7 @@ if __name__ == "__main__":
     elif config.learner == "proto":
         learner = PrototypicalNetwork(
             input_shape=config.output_shape,
-            hid_dim=config.embedding_dim,
+            hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
             use_location=False,
             use_direction=False,
@@ -166,6 +172,7 @@ if __name__ == "__main__":
         group_classes=config.group_classes,
         apply_cropping=config.cropping,
         apply_masking=config.masking,
+        num_crops=config.num_crops,
         patch_size=config.patch_size,
         invert=config.invert,
         no_noise=config.no_noise,
@@ -201,6 +208,7 @@ if __name__ == "__main__":
         group_classes=config.group_classes,
         apply_cropping=config.cropping,
         apply_masking=config.masking,
+        num_crops=config.num_crops,
         patch_size=config.patch_size,
         invert=config.invert,
         no_noise=config.no_noise,

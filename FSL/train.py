@@ -4,7 +4,8 @@ import torchvision
 import wandb
 
 from FSL.utils import crop_input, mask_input, rescale_input
-
+from torchvision.utils import save_image
+import time
 
 def train(
     train,
@@ -20,6 +21,7 @@ def train(
     group_classes,
     apply_cropping,
     apply_masking,
+    num_crops,
     patch_size,
     invert,
     no_noise,
@@ -43,38 +45,66 @@ def train(
             )
             targets = targets.reshape(
                 batch_size * n_way, n_support + n_query
-            )
+            ).repeat(1,num_crops)
 
-            targets = (
-                T.tensor(
-                    range(len(targets[:, 0]) // group_classes),
-                    dtype=T.int64,
-                    device=device,
+            if group_classes>1:
+                targets = (
+                    T.tensor(
+                        range(len(targets[:, 0]) // group_classes),
+                        dtype=T.int64,
+                        device=device,
+                    )
+                    .repeat_interleave(group_classes)
+                    .unsqueeze(1)
+                    .expand_as(targets)
                 )
-                .repeat_interleave(group_classes)
-                .unsqueeze(1)
-                .expand_as(targets)
-            )
 
             if apply_cropping:
-                inputs, coordinates = crop_input(inputs, patch_size)
-            elif apply_masking:
-                inputs, coordinates = mask_input(
-                    inputs, patch_size, invert, no_noise
-                )
-            inputs = rescale_input(inputs, output_shape)
+                cropped_inputs_list = []
+                coordinates_list = []
+                for i in range(num_crops):
+                    cropped_inputs, coordinates = crop_input(inputs, patch_size)
+                    print(coordinates[0:3,:])
+                    save_image(cropped_inputs[0], './test0.png')
+                    save_image(inputs[0], './test0_full.png')
+                    save_image(cropped_inputs[1], './test1.png')
+                    save_image(inputs[1], './test1_full.png')
+                    image_source = T.tensor(list(range(coordinates.shape[1]))).unsqueeze(0).unsqueeze(2).repeat(coordinates.shape[0],1,1)
+                    print(image_source[0:3,:,:])
+                    time.sleep(1000)
+                    coordinates = T.cat([coordinates, image_source], dim=2)
+                    cropped_inputs_list.append(cropped_inputs)
+                    coordinates_list.append(coordinates)
+                augmented_inputs = T.cat(cropped_inputs_list, dim=1)
+                coordinates = T.cat(coordinates_list, dim=1)
 
-            support_images = inputs[:, :n_support, :, :, :].reshape(
+            elif apply_masking:
+                masked_inputs_list = []
+                coordinates_list = []
+                for i in range(num_crops):
+                    masked_inputs, coordinates = mask_input(
+                        inputs, patch_size, invert, no_noise
+                    )
+                    image_source = T.tensor(list(range(coordinates.shape[1]))).unsqueeze(0).unsqueeze(2).repeat(coordinates.shape[0],1,1)
+                    coordinates = T.cat([coordinates, image_source], dim=2)
+                    masked_inputs_list.append(masked_inputs)
+                    coordinates_list.append(coordinates)
+                augmented_inputs = T.cat(masked_inputs_list, dim=1)
+                coordinates = T.cat(coordinates_list, dim=1)
+
+            rescaled_inputs = rescale_input(augmented_inputs, output_shape)
+
+            support_images = rescaled_inputs[:, :n_support*num_crops, :, :, :].reshape(
                 -1, *output_shape
             )
 
-            query_images = inputs[:, n_support:, :, :, :].reshape(
+            query_images = rescaled_inputs[:, n_support*num_crops::num_crops, :, :, :].reshape(
                 -1, *output_shape
             )
 
             if use_coordinates:
                 support_coordinates = (
-                    coordinates[:, :n_support, :].reshape(-1, 4).to(device)
+                    coordinates[:, :n_support*num_crops, :].reshape(-1, 5).to(device)
                 )
                 support_coordinates[:, 2] = (
                     support_coordinates[:, 2] - support_coordinates[:, 0]
@@ -83,7 +113,7 @@ def train(
                     support_coordinates[:, 3] - support_coordinates[:, 1]
                 )
                 query_coordinates = (
-                    coordinates[:, n_support:, :].reshape(-1, 4).to(device)
+                    coordinates[:, n_support*num_crops::num_crops, :].reshape(-1, 5).to(device)
                 )
                 query_coordinates[:, 2] = (
                     query_coordinates[:, 2] - query_coordinates[:, 0]
@@ -91,9 +121,19 @@ def train(
                 query_coordinates[:, 3] = (
                     query_coordinates[:, 3] - query_coordinates[:, 1]
                 )
+                query_coordinates[:,4] = -1
 
-            support_targets = targets[:, :n_support].reshape(-1)
-            query_targets = targets[:, n_support:].reshape(-1)
+            support_targets = targets[:, :n_support*num_crops].reshape(-1)
+            query_targets = targets[:, n_support*num_crops::num_crops].reshape(-1)
+
+            print('---')
+            print(support_images.shape)
+            print(support_coordinates.shape)
+            print(support_targets.shape)
+            print('-')
+            print(query_images.shape)
+            print(query_coordinates.shape)
+            print(query_targets.shape)
 
             support_trajectories = {
                 "observations": support_images,
@@ -116,12 +156,25 @@ def train(
                 outputs["loss"].backward()
                 optimizer.step()
 
-                wandb.log(
-                    {
-                        "Training/Loss": outputs["loss"],
-                        "Training/Accuracy": outputs["accuracy"],
-                    }
-                )
+                if learner.__class__.__name__=='GenerativeContrastiveModelling':
+                    wandb.log(
+                        {
+                            "Training/Loss": outputs["loss"],
+                            "Training/Accuracy": outputs["accuracy"],
+                            "Training/Support Precision": outputs["support_precision_mean"],
+                            "Training/Query Precision": outputs["query_precision_mean"],
+                            "Training/Support Precision Var": outputs["support_precision_var"],
+                            "Training/Query Precision Var": outputs["query_precision_var"],
+                        }
+                    )
+                else:
+                    wandb.log(
+                        {
+                            "Training/Loss": outputs["loss"],
+                            "Training/Accuracy": outputs["accuracy"],
+                        }
+                    )
+
                 if epoch == 0 and episode == 0:
                     wandb.log(
                         {

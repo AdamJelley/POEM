@@ -336,6 +336,7 @@ if __name__ == "__main__":
         env_seed=config.test_seed,
         trained_agent=trained_agent,
         exploratory_agent=exploratory_agent,
+        device=device,
         learner=learner,
         optimizer=optimizer,
         environment_queries=config.environment_queries,
