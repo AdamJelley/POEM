@@ -1,4 +1,4 @@
-name: gen-con-rl
+name: POEM
 channels:
   - conda-forge
 dependencies:
@@ -10,6 +10,4 @@ dependencies:
   - black
   - pytorch
   - torchvision
-  - qt
   - pycocotools
-prefix: /Users/ajelley/miniforge3/envs/gen-con-rl

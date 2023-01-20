@@ -141,3 +141,8 @@ data
 procgen
 checkpoints
 *.png
+
+#Other files not needed for final repo
+notebooks
+SSL/
+FSL/environment
