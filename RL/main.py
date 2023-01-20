@@ -6,9 +6,9 @@ import wandb
 
 from minigrid_rl_starter import utils
 from minigrid_rl_starter.utils import device
-from learners.gcm import GenerativeContrastiveModelling
-from learners.unsupervised_gcm import (
-    UnsupervisedGenerativeContrastiveModelling,
+from learners.poem import PartialObservationExpertsModelling
+from learners.unsupervised_poem import (
+    UnsupervisedPartialObservationExpertsModelling,
 )
 from learners.protonet import PrototypicalNetwork
 from learners.recurrent_agent import RecurrentAgent
@@ -41,7 +41,7 @@ def parse_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Representation learning method: GCM, unsupervised_GCM, proto, recurrent, complete_observations currently supported (REQUIRED)",
+        help="Representation learning method: POEM, unsupervised_POEM, proto, recurrent, complete_observations currently supported (REQUIRED)",
     )
     parser.add_argument(
         "--num_epochs", type=int, default=1, help="Number of training episodes"
@@ -232,8 +232,8 @@ if __name__ == "__main__":
         exploratory_agent = None
 
     # Load learner and optimizer
-    if config.learner == "GCM":
-        learner = GenerativeContrastiveModelling(
+    if config.learner == "POEM":
+        learner = PartialObservationExpertsModelling(
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
@@ -242,8 +242,8 @@ if __name__ == "__main__":
             use_coordinates=False,
         ).to(device)
 
-    elif config.learner == "unsupervised_GCM":
-        learner = UnsupervisedGenerativeContrastiveModelling(
+    elif config.learner == "unsupervised_POEM":
+        learner = UnsupervisedPartialObservationExpertsModelling(
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,

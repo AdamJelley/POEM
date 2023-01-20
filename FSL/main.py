@@ -8,8 +8,8 @@ import wandb
 from torchmeta.datasets.helpers import omniglot, miniimagenet
 from torchmeta.utils.data import BatchMetaDataLoader
 
-from learners.gcm import GenerativeContrastiveModelling
-from learners.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
+from learners.poem import PartialObservationExpertsModelling
+from learners.unsupervised_poem import UnsupervisedPartialObservationExpertsModelling
 from learners.protonet import PrototypicalNetwork
 from FSL.train import train
 
@@ -30,7 +30,10 @@ def parse_fsl_args():
         "--cropping", action="store_true", help="Apply cropping to images."
     )
     parser.add_argument(
-        "--num_crops", type=int, default=1, help="Num crops of each support/query sample."
+        "--num_crops",
+        type=int,
+        default=1,
+        help="Num crops of each support/query sample.",
     )
     parser.add_argument(
         "--patch_size", type=int, default=-1, help="Fix the width of crop or mask."
@@ -126,8 +129,8 @@ if __name__ == "__main__":
 
     dataloader = iter(BatchMetaDataLoader(dataset, batch_size=1, num_workers=4))
 
-    if config.learner == "GCM":
-        learner = GenerativeContrastiveModelling(
+    if config.learner == "POEM":
+        learner = PartialObservationExpertsModelling(
             input_shape=config.output_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
@@ -135,8 +138,8 @@ if __name__ == "__main__":
             use_direction=False,
             use_coordinates=config.use_coordinates,
         ).to(device)
-    elif config.learner == "unsupervised_GCM":
-        learner = UnsupervisedGenerativeContrastiveModelling(
+    elif config.learner == "unsupervised_POEM":
+        learner = UnsupervisedPartialObservationExpertsModelling(
             input_shape=config.output_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,

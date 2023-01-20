@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from models.encoder import Encoder
 
 
-class GCMEncoder(Encoder):
+class POEMEncoder(Encoder):
     def __init__(
         self, input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
     ):
@@ -52,12 +52,12 @@ class GCMEncoder(Encoder):
         precision_out = T.exp(self.precision_head(out))
         return mean_out, precision_out
 
-    def save_checkpoint(self, checkpoint_dir, model_name="gcm_encoder_chkpt.pt"):
+    def save_checkpoint(self, checkpoint_dir, model_name="poem_encoder_chkpt.pt"):
         print("Saving state encoder network checkpoint...")
         checkpoint_file = os.path.join(checkpoint_dir, model_name)
         T.save(self.state_dict(), checkpoint_file)
 
-    def load_checkpoint(self, checkpoint_dir, model_name="gcm_encoder_chkpt.pt"):
+    def load_checkpoint(self, checkpoint_dir, model_name="poem_encoder_chkpt.pt"):
         print("Loading state encoder network checkpoint...")
         checkpoint_file = os.path.join(checkpoint_dir, model_name)
         self.load_state_dict(T.load(checkpoint_file))

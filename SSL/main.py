@@ -10,8 +10,8 @@ import wandb
 from dataclasses import astuple
 
 from SSL.process_data import dataset_loader, observation_generators
-from learners.gcm import GenerativeContrastiveModelling
-from learners.unsupervised_gcm import UnsupervisedGenerativeContrastiveModelling
+from learners.poem import PartialObservationExpertsModelling
+from learners.unsupervised_poem import UnsupervisedPartialObservationExpertsModelling
 from learners.protonet import PrototypicalNetwork
 
 T.autograd.set_detect_anomaly(True)
@@ -24,7 +24,7 @@ def parse_ssl_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Learner to use. Currently support 'GCM' and 'proto'.",
+        help="Learner to use. Currently support 'POEM' and 'proto'.",
     )
     parser.add_argument(
         "--dataset",
@@ -136,8 +136,8 @@ if __name__ == "__main__":
     #     output_shape=config.output_shape,
     # )
 
-    if config.learner == "GCM":
-        learner = GenerativeContrastiveModelling(
+    if config.learner == "POEM":
+        learner = PartialObservationExpertsModelling(
             input_shape=config.output_shape,
             hid_dim=config.embedding_dim,
             z_dim=config.embedding_dim,
@@ -145,8 +145,8 @@ if __name__ == "__main__":
             use_direction=False,
             use_coordinates=config.use_coordinates,
         ).to(device)
-    elif config.learner == "unsupervised_GCM":
-        learner = UnsupervisedGenerativeContrastiveModelling(
+    elif config.learner == "unsupervised_POEM":
+        learner = UnsupervisedPartialObservationExpertsModelling(
             input_shape=config.output_shape,
             hid_dim=config.embedding_dim,
             z_dim=config.embedding_dim,

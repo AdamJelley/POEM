@@ -11,7 +11,7 @@ import minigrid_rl_starter.utils as utils
 from minigrid_rl_starter.utils import device
 from RL.generate_trajectories import generate_data
 from RL.process_trajectories import data_to_tensors
-from learners.gcm import GenerativeContrastiveModelling
+from learners.poem import PartialObservationExpertsModelling
 from learners.protonet import PrototypicalNetwork
 from learners.recurrent_agent import RecurrentAgent
 from models.environment_decoder import EnvironmentDecoder
@@ -33,7 +33,7 @@ def parse_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Representation learning method: GCM or proto currently supported (REQUIRED)",
+        help="Representation learning method: POEM or proto currently supported (REQUIRED)",
     )
     parser.add_argument(
         "--model_run_path",
@@ -131,7 +131,7 @@ def parse_train_args():
         args.output_shape = (3, 32, 32)
     if args.sample:
         assert (
-            args.learner == "GCM"
+            args.learner == "POEM"
         ), "Cannot sample environment representation for non-distributional representation."
     return args
 
@@ -172,8 +172,8 @@ if __name__ == "__main__":
     print("Agent loaded\n")
 
     # Load learner and optimizer
-    if config.learner == "GCM":
-        learner = GenerativeContrastiveModelling(
+    if config.learner == "POEM":
+        learner = PartialObservationExpertsModelling(
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,

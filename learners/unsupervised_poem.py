@@ -3,23 +3,33 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.gcm_encoder import GCMEncoder
+from models.poem_encoder import POEMEncoder
 
 
-class GenerativeContrastiveModelling(nn.Module):
+class UnsupervisedPartialObservationExpertsModelling(nn.Module):
     def __init__(
-        self, input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
+        self,
+        input_shape,
+        hid_dim,
+        z_dim,
+        prior_precision,
+        use_location,
+        use_direction,
+        use_coordinates,
     ):
         super().__init__()
+        self.z_dim = z_dim
+        self.prior_precision = prior_precision
         self.use_location = use_location
         self.use_direction = use_direction
         self.use_coordinates = use_coordinates
-        self.encoder = GCMEncoder(
+        self.encoder = POEMEncoder(
             input_shape, hid_dim, z_dim, use_location, use_direction, use_coordinates
         )
 
-    def get_num_samples(self, targets, num_classes, dtype=None):
+    def get_num_samples(self, targets, dtype=None):
         batch_size = targets.size(0)
+        num_classes = len(torch.unique(targets))
         with torch.no_grad():
             # log.info(f"Batch size is {batch_size}")
             ones = torch.ones_like(targets, dtype=dtype)
@@ -58,7 +68,7 @@ class GenerativeContrastiveModelling(nn.Module):
         batch_size, num_examples, embedding_size = means.shape
         num_classes = len(torch.unique(targets))
 
-        num_samples = self.get_num_samples(targets, num_classes, dtype=means.dtype)
+        num_samples = self.get_num_samples(targets, dtype=means.dtype)
         num_samples.unsqueeze_(-1)
         num_samples = torch.max(
             num_samples, torch.ones_like(num_samples)
@@ -181,6 +191,187 @@ class GenerativeContrastiveModelling(nn.Module):
         ).sum(dim=-1)
         return product_mean, product_precision, log_product_normalisation
 
+    def calculate_Gaussian_prior_product(self, prior_shape, prior_powers):
+        """Calculate product of prior_power Gaussian priors with mean 0 and precision prior_precision.
+
+        Args:
+            prior_shape (tuple): Shape of Gaussian prior.
+            prior_powers (tensor): Powers to raise denominator unit Gaussian (usually V or V-1 for V = num_samples per class)
+
+        Returns:
+            prior_product_mean,
+            prior_product_precision,
+            log_prior_product_normalisation,
+        """
+
+        prior_product_mean = 0
+        prior_product_precision = (
+            torch.maximum(prior_powers, torch.ones_like(prior_powers))
+            * self.prior_precision
+        )
+        log_prior_product_normalisation = 0.5 * (1 - prior_powers) * math.log(
+            2 * math.pi
+        ) + 0.5 * (
+            prior_powers * math.log(self.prior_precision)
+            - torch.log(prior_product_precision)
+        )
+
+        prior_product_mean = torch.zeros(prior_shape).to(prior_powers.device)
+        prior_product_precision = prior_product_precision.unsqueeze(-1).expand(
+            prior_shape
+        )
+        log_prior_product_normalisation = (
+            log_prior_product_normalisation.unsqueeze(-1)
+            .expand(prior_shape)
+            .sum(dim=-1)
+        )
+        return (
+            prior_product_mean,
+            prior_product_precision,
+            log_prior_product_normalisation,
+        )
+
+    def normalise_by_Gaussian_prior(
+        self, means, precisions, prior_product_mean, prior_product_precision
+    ):
+        """Divide Gaussian with means and precisions by Gaussian prior product
+
+        Args:
+            means (tensor): Numerator Gaussian means with shape (batch_size, num_classes) or (batch_size, num_classes, num_queries)
+            precisions (tensor): Numerator Gaussian precisions with shape (batch_size, num_classes) or (batch_size, num_classes, num_queries)
+            prior_product_mean (tensor): Denominator Gaussian means with shape (batch_size, num_classes) or (batch_size, num_classes, num_queries)
+            prior_product_precision (tensor): Denominator Gaussian means with shape (batch_size, num_classes) or (batch_size, num_classes, num_queries)
+        """
+
+        quotient_precisions = precisions - prior_product_precision
+        quotient_means = torch.reciprocal(quotient_precisions) * (
+            precisions * means - prior_product_precision * prior_product_mean
+        )
+        quotient_exponent = 0.5 * (
+            quotient_precisions * torch.square(quotient_means)
+            - precisions * torch.square(means)
+            + prior_product_precision * torch.square(prior_product_mean)
+        )
+        log_quotient_normalisation = (
+            0.5 * (precisions - quotient_precisions) + quotient_exponent
+        ).sum(dim=-1)
+        return quotient_means, quotient_precisions, log_quotient_normalisation
+
+    def calculate_posterior_q(self, support_means, support_precisions, support_targets):
+
+        num_samples = self.get_num_samples(support_targets)
+
+        (
+            support_product_means,
+            support_product_precisions,
+            log_support_product_normalisation,
+        ) = self.inner_gaussian_product(
+            support_means, support_precisions, support_targets
+        )
+        (
+            prior_product_mean,
+            prior_product_precision,
+            log_prior_product_normalisation,
+        ) = self.calculate_Gaussian_prior_product(
+            prior_shape=support_product_means.shape,
+            prior_powers=num_samples - 1,
+        )
+        (
+            posterior_means,
+            posterior_precisions,
+            log_quotient_normalisation,
+        ) = self.normalise_by_Gaussian_prior(
+            support_product_means,
+            support_product_precisions,
+            prior_product_mean,
+            prior_product_precision,
+        )
+
+        log_Z = (
+            log_quotient_normalisation
+            + log_support_product_normalisation
+            - log_prior_product_normalisation
+        )
+        return posterior_means, posterior_precisions, log_Z
+
+    def calculate_Znv(
+        self,
+        posterior_means,
+        posterior_precisions,
+        log_Z,
+        query_means,
+        query_precisions,
+    ):
+        (
+            additional_prior_posterior_means,
+            additional_prior_posterior_precisions,
+            log_additional_prior_normalisation,
+        ) = self.normalise_by_Gaussian_prior(
+            posterior_means,
+            posterior_precisions,
+            prior_product_mean=torch.zeros_like(posterior_means),
+            prior_product_precision=self.prior_precision
+            * torch.ones_like(posterior_precisions),
+        )
+        (
+            outer_product_means,
+            outer_product_precisions,
+            log_outer_product_normalisation,
+        ) = self.outer_gaussian_product(
+            query_means,
+            query_precisions,
+            additional_prior_posterior_means,
+            additional_prior_posterior_precisions,
+        )
+
+        log_Znv = (
+            log_Z.unsqueeze(-1)
+            + log_outer_product_normalisation
+            + log_additional_prior_normalisation.unsqueeze(-1)
+        )
+
+        return log_Znv
+
+    def calculate_posterior_q_no_prior(
+        self, support_means, support_precisions, support_targets
+    ):
+
+        num_samples = self.get_num_samples(support_targets)
+
+        (
+            posterior_means,
+            posterior_precisions,
+            log_support_product_normalisation,
+        ) = self.inner_gaussian_product(
+            support_means, support_precisions, support_targets
+        )
+
+        log_Z = log_support_product_normalisation
+        return posterior_means, posterior_precisions, log_Z
+
+    def calculate_Znv_no_prior(
+        self,
+        posterior_means,
+        posterior_precisions,
+        log_Z,
+        query_means,
+        query_precisions,
+    ):
+        (
+            outer_product_means,
+            outer_product_precisions,
+            log_outer_product_normalisation,
+        ) = self.outer_gaussian_product(
+            query_means,
+            query_precisions,
+            posterior_means,
+            posterior_precisions,
+        )
+
+        log_Znv = log_Z.unsqueeze(-1) + log_outer_product_normalisation
+
+        return log_Znv
+
     def compute_environment_representations(self, support_trajectories):
 
         support_means, support_precisions = self.encoder.forward(
@@ -191,14 +382,10 @@ class GenerativeContrastiveModelling(nn.Module):
         )
 
         support_means = support_means.unsqueeze(0)
-        support_precisions = support_precisions.unsqueeze(0)
+        support_precisions = support_precisions.unsqueeze(0) + self.prior_precision
         support_targets = support_trajectories["targets"].unsqueeze(0)
 
-        (
-            env_means,
-            env_precisions,
-            log_env_normalisation,
-        ) = self.inner_gaussian_product(
+        (env_means, env_precisions, log_Z,) = self.calculate_posterior_q(
             support_means, support_precisions, support_targets
         )
 
@@ -221,101 +408,81 @@ class GenerativeContrastiveModelling(nn.Module):
         )
 
         support_means = support_means.unsqueeze(0)
-        support_precisions = support_precisions.unsqueeze(0)
+        support_precisions = support_precisions.unsqueeze(0) + self.prior_precision
         support_targets = support_trajectories["targets"].unsqueeze(0)
+        num_samples = self.get_num_samples(support_targets)
+
         query_means = query_means.unsqueeze(0)
-        query_precisions = query_precisions.unsqueeze(0)
+        query_precisions = query_precisions.unsqueeze(0) + self.prior_precision
         query_targets = query_views["targets"].unsqueeze(0)
 
-        (
-            env_proto_means,
-            env_proto_precisions,
-            log_env_proto_normalisation,
-        ) = self.inner_gaussian_product(
+        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
             support_means, support_precisions, support_targets
         )
 
-        (
-            env_obs_product_mean,
-            env_obs_product_precision,
-            log_env_obs_normalisation,
-        ) = self.outer_gaussian_product(
-            query_means, query_precisions, env_proto_means, env_proto_precisions
+        log_Znv = self.calculate_Znv(
+            posterior_means,
+            posterior_precisions,
+            log_Z,
+            query_means,
+            query_precisions,
         )
 
-        _, predictions = log_env_obs_normalisation.max(1)
+        log_likelihood = (
+            ((num_samples + 1) * log_Z)
+            - num_samples * (torch.logsumexp(log_Znv, dim=-1))
+            + (num_samples * math.log(log_Znv.shape[-1]))
+        ).sum()
 
-        loss = F.cross_entropy(log_env_obs_normalisation, query_targets)
+        # log_likelihood = (
+        #     log_Z + num_samples*torch.log(torch.exp(log_Z)/torch.exp(log_Znv.mean(dim=-1)))
+        # ).sum()
+        print(support_precisions.mean())
+
+        _, predictions = (log_Znv - log_Z.unsqueeze(-1)).max(1)
+
+        loss = -log_likelihood
+        # loss = F.cross_entropy(log_env_obs_normalisation, query_targets)
         accuracy = torch.eq(predictions, query_targets).float().mean()
 
         output = {}
         output["predictions"] = predictions
         output["loss"] = loss
         output["accuracy"] = accuracy
-        output["support_precision_mean"] = support_precisions.mean()
-        output["support_precision_var"] = support_precisions.var()
-        output["query_precision_mean"] = query_precisions.mean()
-        output["query_precision_var"] = query_precisions.var()
-
+        output["mean_log_Z"] = log_Z.mean()
+        output["mean_log_Znv"] = log_Znv.mean()
+        output["loss_numerator"] = ((num_samples + 1) * log_Z).sum()
+        output["loss_denominator"] = (torch.logsumexp(log_Znv, dim=-1)).sum()
+        output["support_means"] = support_means.mean()
+        output["support_precisions"] = support_precisions.mean()
 
         return output
 
-    def compute_loss2(self, support_trajectories, query_views):
+    def compute_tau_scaling(self, precision):
+        support_means = torch.zeros((1, 1, self.z_dim))
+        support_precisions = precision * torch.ones((1, 1, self.z_dim))
+        support_targets = torch.zeros((1, 1), dtype=torch.int64)
+        num_samples = self.get_num_samples(support_targets)
 
-        num_support_obs = support_trajectories["targets"].shape[0]
-        num_query_obs = query_views["targets"].shape[0]
+        query_means = torch.zeros((1, 100, self.z_dim))
+        query_precisions = precision * torch.ones((1, 100, self.z_dim))
 
-        observations = torch.cat(
-            [support_trajectories["observations"], query_views["observations"]], dim=0
-        ).detach()
-        if self.use_location:
-            locations = torch.cat(
-                [support_trajectories["locations"], query_views["locations"]], dim=0
-            ).detach()
-        else:
-            locations = None
-        if self.use_direction:
-            directions = torch.cat(
-                [support_trajectories["directions"], query_views["directions"]], dim=0
-            ).detach()
-        else:
-            directions = None
-        observation_means, observation_precisions = self.encoder.forward(
-            observations, locations, directions
-        )
-
-        support_means = observation_means[:num_support_obs].unsqueeze(0)
-        query_means = observation_means[num_support_obs:].unsqueeze(0)
-        support_precisions = observation_precisions[:num_support_obs].unsqueeze(0)
-        query_precisions = observation_precisions[num_support_obs:].unsqueeze(0)
-
-        support_targets = support_trajectories["targets"].unsqueeze(0)
-        query_targets = query_views["targets"].unsqueeze(0)
-
-        (
-            env_proto_means,
-            env_proto_precisions,
-            log_env_proto_normalisation,
-        ) = self.inner_gaussian_product(
+        posterior_means, posterior_precisions, log_Z = self.calculate_posterior_q(
             support_means, support_precisions, support_targets
         )
 
-        (
-            env_obs_product_mean,
-            env_obs_product_precision,
-            log_env_obs_normalisation,
-        ) = self.outer_gaussian_product(
-            query_means, query_precisions, env_proto_means, env_proto_precisions
+        log_Znv = self.calculate_Znv(
+            posterior_means,
+            posterior_precisions,
+            log_Z,
+            query_means,
+            query_precisions,
         )
 
-        _, predictions = log_env_obs_normalisation.max(1)
+        log_likelihood = (
+            ((num_samples + 1) * log_Z)
+            - num_samples * (torch.logsumexp(log_Znv, dim=-1))
+            + (num_samples * math.log(log_Znv.shape[-1]))
+        ).sum()
 
-        loss = F.cross_entropy(log_env_obs_normalisation, query_targets)
-        accuracy = torch.eq(predictions, query_targets).float().mean()
-
-        output = {}
-        output["predictions"] = predictions
-        output["loss"] = loss
-        output["accuracy"] = accuracy
-
-        return output
+        return log_likelihood
