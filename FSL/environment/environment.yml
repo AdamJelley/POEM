@@ -1,8 +1,0 @@
-name: torchmeta
-channels:
-  - conda-forge
-dependencies:
-  - python=3.9
-  - torchvision
-  - wandb
-prefix: /Users/ajelley/miniforge3/envs/torchmeta
