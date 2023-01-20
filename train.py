@@ -71,7 +71,9 @@ def train(
                     query_dataset, train_dataset
                 )
                 try:
-                    query_trajectories_filtered = data_to_tensors(query_dataset_filtered, device)
+                    query_trajectories_filtered = data_to_tensors(
+                        query_dataset_filtered, device
+                    )
                 except:
                     query_trajectories_filtered = data_to_tensors(query_dataset, device)
 
