@@ -9,8 +9,8 @@ import wandb
 
 import minigrid_rl_starter.utils as utils
 from minigrid_rl_starter.utils import device
-from generate_trajectories import generate_data
-from process_trajectories import data_to_tensors
+from RL.generate_trajectories import generate_data
+from RL.process_trajectories import data_to_tensors
 from learners.gcm import GenerativeContrastiveModelling
 from learners.protonet import PrototypicalNetwork
 from learners.recurrent_agent import RecurrentAgent

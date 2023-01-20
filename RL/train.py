@@ -5,8 +5,8 @@ import time
 import wandb
 import matplotlib.pyplot as plt
 
-from generate_trajectories import generate_data
-from process_trajectories import (
+from RL.generate_trajectories import generate_data
+from RL.process_trajectories import (
     data_to_tensors,
     orientate_observations,
     remove_seen_queries,

@@ -83,7 +83,7 @@ class RecurrentAgent(nn.Module):
         query_targets = query_views["targets"].unsqueeze(0)
 
         num_environments = len(support_targets.unique())
-        env_proto_embeddings = T.zeros(1, num_environments, self.z_dim)
+        env_proto_embeddings = support_embeddings.new_zeros(1, num_environments, self.z_dim)
 
         for target in support_targets.unique():
             trajectory_embedding = support_embeddings[support_targets == target]

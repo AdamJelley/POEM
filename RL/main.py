@@ -15,7 +15,7 @@ from learners.recurrent_agent import RecurrentAgent
 from learners.complete_observation_learner import (
     CompleteObservationLearner,
 )
-from train import train
+from RL.train import train
 
 # T.autograd.set_detect_anomaly(True)
 

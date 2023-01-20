@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from models.proto_encoder import ProtoEncoder
 from models.projection_network import ProjectionNetwork
-from process_trajectories import orientate_observations
+from RL.process_trajectories import orientate_observations
 
 
 class CompleteObservationLearner(nn.Module):
