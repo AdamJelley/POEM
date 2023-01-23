@@ -9,7 +9,6 @@ from torchmeta.datasets.helpers import omniglot, miniimagenet
 from torchmeta.utils.data import BatchMetaDataLoader
 
 from learners.poem import PartialObservationExpertsModelling
-from learners.unsupervised_poem import UnsupervisedPartialObservationExpertsModelling
 from learners.protonet import PrototypicalNetwork
 from FSL.train import train
 
@@ -134,16 +133,6 @@ if __name__ == "__main__":
             input_shape=config.output_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
-            use_location=False,
-            use_direction=False,
-            use_coordinates=config.use_coordinates,
-        ).to(device)
-    elif config.learner == "unsupervised_POEM":
-        learner = UnsupervisedPartialObservationExpertsModelling(
-            input_shape=config.output_shape,
-            hid_dim=config.hidden_dim,
-            z_dim=config.embedding_dim,
-            prior_precision=0.01,
             use_location=False,
             use_direction=False,
             use_coordinates=config.use_coordinates,

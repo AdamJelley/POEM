@@ -19,6 +19,16 @@ class PartialObservationExpertsModelling(nn.Module):
         )
 
     def get_num_samples(self, targets, num_classes, dtype=None):
+        """Compute number samples per class from targets by batch.
+
+        Args:
+            targets (tensor): Target class of each support example
+            num_classes (int): Total number of classes across tasks.
+            dtype (torch.dtype, optional): Optional data type of output. Defaults to None.
+
+        Returns:
+            num_samples (tensor): Number of samples per class by batch.
+        """
         batch_size = targets.size(0)
         with torch.no_grad():
             # log.info(f"Batch size is {batch_size}")
@@ -66,7 +76,6 @@ class PartialObservationExpertsModelling(nn.Module):
 
         indices = targets.unsqueeze(-1).expand_as(means)
 
-        # NOTE: If this approach doesn't work well, try first normalising precisions by number of samples with:
         product_precision = precisions.new_zeros(
             (batch_size, num_classes, embedding_size)
         )
@@ -182,6 +191,21 @@ class PartialObservationExpertsModelling(nn.Module):
         return product_mean, product_precision, log_product_normalisation
 
     def compute_environment_representations(self, support_trajectories):
+        """Compute unified environment representation at inference time (not required for training).
+
+        Args:
+            support_trajectories (dict):
+                Dictionary of support views including optional view information.
+                Observations are a 4D tensor of views from different items (where number of views can vary by item).
+
+        Returns:
+            env_means (tensor):
+                A tensor containing the means of the resulting product Gaussian for each support item. This tensor has shape
+                `(batch_size, num_classes, embedding_size)`.
+            env_precisions (tensor):
+                A tensor containing the means of the resulting product Gaussian for each support item. This tensor has shape
+                `(batch_size, num_classes, embedding_size)`.
+        """
 
         support_means, support_precisions = self.encoder.forward(
             support_trajectories["observations"],
@@ -205,6 +229,21 @@ class PartialObservationExpertsModelling(nn.Module):
         return env_means, env_precisions
 
     def compute_loss(self, support_trajectories, query_views):
+        """Compute loss of query views given support views.
+
+        Args:
+            support_trajectories (dict):
+                Dictionary of support views including optional view information.
+                Observations are a 4D tensor of views from different items (where number of views can vary by item).
+
+            query_views (dict):
+                Dictionary of query views including optional view information.
+                Observations are a 4D tensor of views from different items (where number of views can vary by item).
+
+        Returns:
+            output (dict):
+                Dictionary containing scalar loss, class predictions for queries and mean accuracy of query predictions.
+        """
 
         support_means, support_precisions = self.encoder.forward(
             support_trajectories["observations"],
@@ -256,65 +295,5 @@ class PartialObservationExpertsModelling(nn.Module):
         output["support_precision_var"] = support_precisions.var()
         output["query_precision_mean"] = query_precisions.mean()
         output["query_precision_var"] = query_precisions.var()
-
-        return output
-
-    def compute_loss2(self, support_trajectories, query_views):
-
-        num_support_obs = support_trajectories["targets"].shape[0]
-        num_query_obs = query_views["targets"].shape[0]
-
-        observations = torch.cat(
-            [support_trajectories["observations"], query_views["observations"]], dim=0
-        ).detach()
-        if self.use_location:
-            locations = torch.cat(
-                [support_trajectories["locations"], query_views["locations"]], dim=0
-            ).detach()
-        else:
-            locations = None
-        if self.use_direction:
-            directions = torch.cat(
-                [support_trajectories["directions"], query_views["directions"]], dim=0
-            ).detach()
-        else:
-            directions = None
-        observation_means, observation_precisions = self.encoder.forward(
-            observations, locations, directions
-        )
-
-        support_means = observation_means[:num_support_obs].unsqueeze(0)
-        query_means = observation_means[num_support_obs:].unsqueeze(0)
-        support_precisions = observation_precisions[:num_support_obs].unsqueeze(0)
-        query_precisions = observation_precisions[num_support_obs:].unsqueeze(0)
-
-        support_targets = support_trajectories["targets"].unsqueeze(0)
-        query_targets = query_views["targets"].unsqueeze(0)
-
-        (
-            env_proto_means,
-            env_proto_precisions,
-            log_env_proto_normalisation,
-        ) = self.inner_gaussian_product(
-            support_means, support_precisions, support_targets
-        )
-
-        (
-            env_obs_product_mean,
-            env_obs_product_precision,
-            log_env_obs_normalisation,
-        ) = self.outer_gaussian_product(
-            query_means, query_precisions, env_proto_means, env_proto_precisions
-        )
-
-        _, predictions = log_env_obs_normalisation.max(1)
-
-        loss = F.cross_entropy(log_env_obs_normalisation, query_targets)
-        accuracy = torch.eq(predictions, query_targets).float().mean()
-
-        output = {}
-        output["predictions"] = predictions
-        output["loss"] = loss
-        output["accuracy"] = accuracy
 
         return output

@@ -7,9 +7,6 @@ import wandb
 from minigrid_rl_starter import utils
 from minigrid_rl_starter.utils import device
 from learners.poem import PartialObservationExpertsModelling
-from learners.unsupervised_poem import (
-    UnsupervisedPartialObservationExpertsModelling,
-)
 from learners.protonet import PrototypicalNetwork
 from learners.recurrent_agent import RecurrentAgent
 from learners.complete_observation_learner import (
@@ -41,7 +38,7 @@ def parse_train_args():
     parser.add_argument(
         "--learner",
         required=True,
-        help="Representation learning method: POEM, unsupervised_POEM, proto, recurrent, complete_observations currently supported (REQUIRED)",
+        help="Representation learning method: POEM, proto, recurrent, complete_observations currently supported (REQUIRED)",
     )
     parser.add_argument(
         "--num_epochs", type=int, default=1, help="Number of training episodes"
@@ -237,17 +234,6 @@ if __name__ == "__main__":
             input_shape=config.input_shape,
             hid_dim=config.hidden_dim,
             z_dim=config.embedding_dim,
-            use_location=config.use_location,
-            use_direction=config.use_direction,
-            use_coordinates=False,
-        ).to(device)
-
-    elif config.learner == "unsupervised_POEM":
-        learner = UnsupervisedPartialObservationExpertsModelling(
-            input_shape=config.input_shape,
-            hid_dim=config.hidden_dim,
-            z_dim=config.embedding_dim,
-            prior_precision=1,
             use_location=config.use_location,
             use_direction=config.use_direction,
             use_coordinates=False,
