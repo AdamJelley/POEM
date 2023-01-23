@@ -92,12 +92,20 @@ def parse_fsl_args():
 if __name__ == "__main__":
     args = parse_fsl_args()
 
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    deviceID = GPUtil.getFirstAvailable(
-        order="load", maxLoad=0.4, maxMemory=0.4, attempts=1, interval=900, verbose=True
-    )[0]
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(deviceID)
-    device = T.device("cuda" if T.cuda.is_available() else "cpu")
+    if T.cuda.is_available():
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        deviceID = GPUtil.getFirstAvailable(
+            order="load",
+            maxLoad=0.4,
+            maxMemory=0.4,
+            attempts=1,
+            interval=900,
+            verbose=True,
+        )[0]
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(deviceID)
+        device = T.device("cuda")
+    else:
+        device = T.device("cpu")
 
     wandb.init(project="gen-con-fsl")
     wandb.config.update(args)

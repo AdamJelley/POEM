@@ -65,19 +65,12 @@ def train(
                 coordinates_list = []
                 for i in range(num_crops):
                     cropped_inputs, coordinates = crop_input(inputs, patch_size)
-                    print(coordinates[0:3, :])
-                    save_image(cropped_inputs[0], "./test0.png")
-                    save_image(inputs[0], "./test0_full.png")
-                    save_image(cropped_inputs[1], "./test1.png")
-                    save_image(inputs[1], "./test1_full.png")
                     image_source = (
                         T.tensor(list(range(coordinates.shape[1])))
                         .unsqueeze(0)
                         .unsqueeze(2)
                         .repeat(coordinates.shape[0], 1, 1)
                     )
-                    print(image_source[0:3, :, :])
-                    time.sleep(1000)
                     coordinates = T.cat([coordinates, image_source], dim=2)
                     cropped_inputs_list.append(cropped_inputs)
                     coordinates_list.append(coordinates)
@@ -138,15 +131,6 @@ def train(
 
             support_targets = targets[:, : n_support * num_crops].reshape(-1)
             query_targets = targets[:, n_support * num_crops :: num_crops].reshape(-1)
-
-            print("---")
-            print(support_images.shape)
-            print(support_coordinates.shape)
-            print(support_targets.shape)
-            print("-")
-            print(query_images.shape)
-            print(query_coordinates.shape)
-            print(query_targets.shape)
 
             support_trajectories = {
                 "observations": support_images,

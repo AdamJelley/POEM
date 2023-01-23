@@ -4,3 +4,4 @@
 [submodule "rl-starter-files"]
 	path = minigrid_rl_starter
 	url = https://github.com/AdamJelley/minigrid-rl-starter.git
+	branch = main

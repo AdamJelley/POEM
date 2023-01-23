@@ -20,9 +20,12 @@ class RecurrentEncoder(nn.Module):
         self.z_obs_dim = z_obs_dim
         self.z_env_dim = z_env_dim
         self.recurrent_layer = nn.GRU(
-            input_size=self.z_obs_dim, hidden_size=self.z_env_dim, num_layers=1
+            input_size=self.z_obs_dim,
+            hidden_size=self.z_env_dim,
+            num_layers=1,
+            batch_first=True,
         )
 
     def forward(self, env_support_embeddings):
-        out, hidden_state = self.recurrent_layer(env_support_embeddings)
+        out, hidden_state = self.recurrent_layer(env_support_embeddings.unsqueeze(0))
         return out, hidden_state
