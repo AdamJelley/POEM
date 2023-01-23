@@ -3,10 +3,18 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - numpy
-  - gym
-  - matplotlib
-  - tensorboard
-  - black
-  - pytorch
-  - torchvision
+  - black==22.3.0
+  - numpy==1.22.2
+  - matplotlib==3.5.1
+  - pytorch==1.9.1
+# - pytorch-cuda==11.3 # Replace pytorch==1.9.1 with cuda version for gpu use.
+  - torchvision==0.10.0
+  - gym==0.21.0
+  - pip
+  - pip:
+    - array2gif==1.0.4
+    - torch-ac==1.1.0
+    - torchmeta==1.8.0
+    - gputil==1.4.0
+    - wandb==0.12.18
+
