@@ -51,7 +51,8 @@ Example: Training a decoder to generate environment reconstructions from a train
 ```
 python -m RL.main_decoder --env MiniGrid-SimpleCrossingS11N5-v0 --agent CrossingS11N5_A2C_fullgrid_navigation --learner POEM --use_location --use_direction --log_frequency 10 --num_episodes=5000 --decode_grid --model_run_path <wandb-username>/<wandb-project>/<wandb-run-id>
 ```
-<img src="resources/GroundTruthEnvs.jpg" width=300> <img src="resources/POEMReconstructedEnvs.jpg" width=300>
+<img src="resources/GroundTruthEnvs.jpg" width=350> <img src="resources/POEMReconstructedEnvs.jpg" width=350>
+
 Environments (left) and their reconstructions from agent observations using POEM (right).
 
 ### Meta-Dataset Benchmarking
