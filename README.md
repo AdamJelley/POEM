@@ -6,7 +6,7 @@ Contrastive Meta-Learning for Partially Observable Few-Shot Learning (accepted f
 ![image](resources/POEM_Figure1.jpg)
 ## Installation
 
-Clone the repository (including submodules for use for learning representations of RL agent environments). Create the specified environment and install the gym-minigrid package, as below:
+Clone the repository (including submodules for use for learning representations of RL agent environments). Create the specified conda environment and install the gym-minigrid package, as below:
 
 ```
 git clone --recurse submodules https://github.com/AdamJelley/POEM
@@ -15,7 +15,7 @@ conda activate POEM
 pip install -e ./gym-minigrid
 ```
 
-Note: If you have already cloned the project and forgot `--recurse-submodules` but would like to run the RL agent environment experiments, you can instead run:
+Note: If you have already cloned the project and forgot `--recurse-submodules`, to add the submodules required to run the RL agent environment experimetns you can run:
 ```
 git submodule update --init
 ```
@@ -33,7 +33,7 @@ python -m FSL.main --help
 Toy experiments use on the [torchmeta](https://github.com/tristandeleu/pytorch-meta) package, so the required MiniImageNet and Omniglot datasets can be downloaded automatically. However, torchmeta limits the torchvision version (to torchvision<0.11.0 and >=0.5.0, as in e.g. [this issue](https://github.com/tristandeleu/pytorch-meta/issues/161)). If you don't intend to run the toy experiments you can upgrade the the PyTorch/Torchvision packages from those specified in the environment file.
 
 ### Minigrid Agent Environment Experiments
-<img src="resources/EnvironmentView.gif" width=250> <img src="resources/AgentView.gif" width=250>
+<img src="resources/EnvironmentView.gif" width=300> <img src="resources/AgentView.gif" width=300>
 
 Example: Training POEM on the 11x11, 5 room [simple crossing environment](https://minigrid.farama.org/environments/minigrid/CrossingEnv/):
 ```
@@ -43,12 +43,21 @@ Full configuration options can be listed with
 ```
 python -m RL.main --help
 ```
-A pretrained agent (to generate optimal trajectories) and an exploratory agent (to generate queries for training) are both available for the example above in the bundled `minigrid_rl_starter` package. For other environment variants these agents will need to be trained independently. Note our agents use an environment wrapper to only allow navigation actions to simplify the action space in the bundled `gym-minigrid` package.
+A pretrained agent (to generate optimal trajectories) and an exploratory agent (to generate queries for training) are both available for the example above in the bundled `minigrid_rl_starter` package. For other environment variants these agents will need to be trained independently. Note that the bundled `gym-minigrid` package uses an environment wrapper to only allow navigation actions to simplify the action space for these agents.
+
+Once POEM has been trained to synthesise partial observations into unified environment representations, a decoder can be trained on these representations to generate environment reconstructions from the trajectories of agent-centric observations in new environments.
+
+Example: Training a decoder to generate environment reconstructions from a trained POEM model (using the wanbd run from the training above):
+```
+python -m RL.main_decoder --env MiniGrid-SimpleCrossingS11N5-v0 --agent CrossingS11N5_A2C_fullgrid_navigation --learner POEM --use_location --use_direction --log_frequency 10 --num_episodes=5000 --decode_grid --model_run_path <wandb-username>/<wandb-project>/<wandb-run-id>
+```
+<img src="resources/GroundTruthEnvs.jpg" width=300> <img src="resources/POEMReconstructedEnvs.jpg" width=300>
+Environments (left) and their reconstructions from agent observations using POEM (right).
 
 ### Meta-Dataset Benchmarking
-The full Meta-Dataset becnhmarking reported in the paper was carried out using the [GATE (Generalisation After Transfer Evaluation)](https://github.com/AntreasAntoniou/GATE) framework, to ensure strict evaluation procedures and using state-of-the-art backbones (as specified) for fair comparisons with baselines. This codebase is also available for reproduction in the repository [POEM-Bench](https://github.com/BayesWatch/POEM-Bench/tree/main/gate/learners).
+The full Meta-Dataset benchmarking reported in the paper was carried out using the [GATE (Generalisation After Transfer Evaluation)](https://github.com/AntreasAntoniou/GATE) framework, to ensure strict evaluation procedures and using state-of-the-art backbones (as specified) for fair comparisons with baselines. Our benchmarking codebase is also available in the repository [POEM-Bench](https://github.com/BayesWatch/POEM-Bench).
 
-Final results on Meta-Dataset with ResNet-50 backbones:
+Final results on Partially-Observable Meta-Dataset (as introduced in our paper) with ResNet-18 backbones:
 
 | **Test Source** | **Finetune**   | **ProtoNet** | **MAML**   | **POEM**       |
 |:---------------:|:--------------:|:------------:|:----------:|:--------------:|
