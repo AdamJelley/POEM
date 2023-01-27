@@ -15,7 +15,7 @@ conda activate POEM
 pip install -e ./gym-minigrid
 ```
 
-Note: If you have already cloned the project and forgot `--recurse-submodules`, to add the submodules required to run the RL agent environment experimetns you can run:
+Note: If you have already cloned the project and forgot `--recurse-submodules`, to add the submodules required to run the RL agent environment experiments you can run:
 ```
 git submodule update --init
 ```
@@ -56,7 +56,7 @@ python -m RL.main_decoder --env MiniGrid-SimpleCrossingS11N5-v0 --agent Crossing
 Environments (left) and their reconstructions from agent observations using POEM (right).
 
 ### Meta-Dataset Benchmarking
-The full Meta-Dataset benchmarking reported in the paper was carried out using the [GATE (Generalisation After Transfer Evaluation)](https://github.com/AntreasAntoniou/GATE) framework, to ensure strict evaluation procedures and using state-of-the-art backbones (as specified) for fair comparisons with baselines. Our benchmarking codebase is also available in the repository [POEM-Bench](https://github.com/BayesWatch/POEM-Bench).
+The full Meta-Dataset benchmarking reported in the paper was carried out using the [GATE (Generalisation After Transfer Evaluation)](https://github.com/BayesWatch/POEM-Bench) framework, to ensure strict evaluation procedures and using state-of-the-art backbones (as specified) for fair comparisons with baselines. Our benchmarking codebase is available in the repository [POEM-Bench](https://github.com/BayesWatch/POEM-Bench).
 
 Final results on Partially-Observable Meta-Dataset (as introduced in our paper) with ResNet-18 backbones:
 
