@@ -68,7 +68,3 @@ Final results on Partially-Observable Meta-Dataset (as introduced in our paper) 
 | **Fungi**       | 61.0+/-0.2     | 61.4+/-0.4   | 46.1+/-0.4 | **64.8+/-0.3** |
 | **Omniglot**    | 71.3+/-0.1     | 87.8+/-0.1   | 47.4+/-1.0 | **89.2+/-0.7** |
 | **Textures**    | **83.2+/-0.4** | 76.7+/-1.6   | 73.1+/-0.4 | 81.4+/-0.6     |
-
-## Citation
-```
-```
