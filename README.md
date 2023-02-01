@@ -1,7 +1,7 @@
 # POEM: Partial Observation Experts Modelling
 This repository contains the official PyTorch implementation of POEM (Partial Observation Experts Modelling), a contrastive/meta-learning approach for learning representations from partial observations. This approach was introduced in our paper:
 
-Contrastive Meta-Learning for Partially Observable Few-Shot Learning (accepted for publication at ICLR 2023)
+[Contrastive Meta-Learning for Partially Observable Few-Shot Learning](https://arxiv.org/abs/2301.13136) (accepted for publication at ICLR 2023)
 
 ![image](resources/POEM_Figure1.jpg)
 ## Installation
