@@ -9,7 +9,7 @@ This repository contains the official PyTorch implementation of POEM (Partial Ob
 Clone the repository (including submodules for use for learning representations of RL agent environments). Create the specified conda environment and install the gym-minigrid package, as below:
 
 ```
-git clone --recurse submodules https://github.com/AdamJelley/POEM
+git clone --recurse-submodules https://github.com/AdamJelley/POEM
 conda env create --file environment.yml
 conda activate POEM
 pip install -e ./gym-minigrid
