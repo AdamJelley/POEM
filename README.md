@@ -71,7 +71,8 @@ Final results on Partially-Observable Meta-Dataset (as introduced in our paper) 
 
 ## Citation
 
-```
+If you find our work useful, please consider citing our paper:
+```bibtex
 @misc{jelley2023contrastive,
       title={Contrastive Meta-Learning for Partially Observable Few-Shot Learning}, 
       author={Adam Jelley and Amos Storkey and Antreas Antoniou and Sam Devlin},
@@ -81,3 +82,4 @@ Final results on Partially-Observable Meta-Dataset (as introduced in our paper) 
       primaryClass={cs.LG}
 }
 ```
+If you have any questions, please feel free to create an issue or get in touch!
